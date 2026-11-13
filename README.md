@@ -6,6 +6,8 @@ If these trends continue... EHHHH
 
 ## What this is
 
+**DiScO** = **Deterministic Inspection of Semantic Coupling in Outputs**.
+
 **DiScO STU** (Semantic Transformation Utility) is a proposed semantic-transformation research instrument within the broader DiScO work. Experiment 01, **From Meaning to Management**, examines whether intended meaning survives structured decomposition and reconstruction, including reconstruction as commercial-management advice.
 
 **SERA** (Semantic Explication Recorded Analytics) is the proposed human explication/warmup interface: source paragraphs and the author's independently frozen intended-meaning references are produced before model testing.
