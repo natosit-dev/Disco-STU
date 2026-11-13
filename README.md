@@ -1,2 +1,5 @@
 # Disco-STU
-If there trends continue... EHHHH
+If these trends continue... EHHHH
+
+
+...your fish is dead
