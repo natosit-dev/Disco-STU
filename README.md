@@ -19,6 +19,9 @@ If these trends continue... EHHHH
 
 These Markdown files are copied without alteration from the `feature/disco-stu-20261113` branch of the original DiScO repository. Their original DOCX filenames and SHA-256 checksums are preserved in the archived files. The documents are text extractions, not binary DOCX replicas.
 
+**Nat Notes**
+I'm building something that takes text I've written, a few paragraphs from the last 20 years (I write a lot😅), breaking down what I was trying to represent semantically by explaining the actors, relationships, assertions, etc manually and turning that explication into structured data. Then run the same text through different LLM models, have it do the same deconstruction. Wipe the LLM context, have it reconstruct the output from the structured data- one as neutral prose, one as advice to a competitive business that sells products. Then compare the outputs with my original explication. Final output is my assessment of what was lost in the process, and potentially what I failed to convey in the original translation from thought to written words. Human in the loop semantic deconstruction, transformation, and reconstruction. 
+
 ## License
 
 Two licenses apply to original material that we have the rights to distribute:
