@@ -33,6 +33,10 @@ Run backend tests with `python -m pip install -r requirements-dev.txt && pytest 
 
 [Implementation plan](docs/sera/BUILD_PLAN_v0.1.md) · [Data contract](docs/sera/DATA_CONTRACT.md) · [Shared semantic schema](schemas/semantic_v0.1.json)
 
+## The Nerd implementation handoff
+
+[Complete STU pipeline handoff v0.1](docs/handoff/NERD_HANDOFF_STU_COMPLETE_PIPELINE_v0.1_2026-11-14.md) — build the remaining model runner, paired reconstructions, Review and timing, analysis and tests as one coherent system. Includes a five-step user walkthrough for later acceptance testing.
+
 ## Research documentation
 
 - [v0.3 — pre-sprint baseline](docs/stu/DiScO_STU_From_Meaning_to_Management_Nat_Style_v0.3_2026-11-12_BASELINE.md) — archival text extraction from the November 12, 2026 Word plan; identifies work existing before the Apart AI × Epistemics sprint.
