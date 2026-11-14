@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/natosit-dev/Disco-STU/blob/main/schemas/semantic_v0.1.json",
+  "title": "DiScO STU semantic representation v0.1",
+  "description": "Common category-prose, unit and relationship structure. Human intention and model inference use this structural vocabulary but retain different provenance/epistemic roles.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["category_prose", "units", "relations"],
+  "properties": {
+    "category_prose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claims", "actors_objects", "relationships", "negations", "conditions_scope", "dependencies", "rhetorical_function", "ambiguities"],
+      "properties": {
+        "claims": {"type": "string"},
+        "actors_objects": {"type": "string"},
+        "relationships": {"type": "string"},
+        "negations": {"type": "string"},
+        "conditions_scope": {"type": "string"},
+        "dependencies": {"type": "string"},
+        "rhetorical_function": {"type": "string"},
+        "ambiguities": {"type": "string"}
+      }
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["unit_id", "kind", "text", "importance", "polarity", "source_support", "notes"],
+        "properties": {
+          "unit_id": {"type": "string", "minLength": 1},
+          "kind": {"enum": ["claim", "actor", "object", "negation", "condition", "qualification", "dependency", "other"]},
+          "text": {"type": "string", "minLength": 1},
+          "importance": {"enum": ["unspecified", "essential", "secondary"]},
+          "polarity": {"enum": ["unspecified", "affirmed", "negated", "uncertain"]},
+          "source_support": {"type": "string"},
+          "notes": {"type": "string"}
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["relation_id", "from_unit_id", "relation_type", "to_unit_id", "explanation"],
+        "properties": {
+          "relation_id": {"type": "string", "minLength": 1},
+          "from_unit_id": {"type": "string", "minLength": 1},
+          "relation_type": {"enum": ["supports", "depends_on", "contradicts", "qualifies", "causes", "denies_equivalence", "relates_to", "other"]},
+          "to_unit_id": {"type": "string", "minLength": 1},
+          "explanation": {"type": "string"}
+        }
+      }
+    }
+  }
+}
