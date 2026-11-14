@@ -1,237 +1,160 @@
-"""Progressive, human-only semantic explication. Persistent changes require explicit clicks."""
+"""Thin SERA view: presentation and explicit application-service commands only."""
 from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
-
 import pandas as pd
 import streamlit as st
+from sera.application import SeraApplication
 
-from sera import CATEGORIES, SeraStore, new_record, validate_freeze
-from sera.schema import DOMAINS, IMPORTANCE, POLARITY, RELATION_TYPES, UNIT_KINDS
-from sera.service import save_category_prose, save_intention, save_relations, save_units, update_source
-
-st.set_page_config(page_title="SERA · DiScO STU", page_icon="🐟", layout="wide")
-st.title("🐟 SERA")
-st.caption("Semantic Explication Recorded Analytics · Your meaning first, before the model sees the paragraph")
-st.markdown("**Progressive explication:** source → unrestricted intention → category prose → semantic units and relations → frozen Oracle.")
-
-store = SeraStore(os.environ.get("SERA_DATA_DIR", "data"))
+st.set_page_config(page_title='SERA · DiScO STU', page_icon='🐟', layout='wide')
+st.title('🐟 SERA — Capture human intended meaning')
+app = SeraApplication(os.environ.get('SERA_DATA_DIR', 'data'))
+config = app.editor_spec()
 
 
-def save_and_rerun(record: dict, event: str) -> None:
+def command(fn, *args, **kwargs):
     try:
-        store.save_draft(record, event=event)
-    except Exception as exc:
-        st.error(f"Save failed: {exc}")
-        st.stop()
+        result = fn(*args, **kwargs)
+    except (ValueError, RuntimeError, OSError) as exc:
+        st.error(str(exc))
+        return None
     st.rerun()
+    return result
 
 
-def record_json(obj: dict) -> str:
-    return json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+def rows(frame):
+    # Presentation adapter; semantic validation and canonicalization occur in backend.
+    return frame.where(pd.notna(frame), '').to_dict(orient='records')
 
 
-def edited_rows(frame: pd.DataFrame) -> list[dict]:
-    return frame.where(pd.notna(frame), "").to_dict(orient="records")
-
-
-sample_ids = store.sample_ids()
-options = ["Create a new sample", *sample_ids]
-focus = st.session_state.pop("_focus_sample", None)
+records = app.list_samples()
+ids = [r['sample_id'] for r in records]
+options = ['Create a new sample', *ids]
+focus = st.session_state.pop('_focus_sample', None)
 if focus in options:
-    st.session_state["sample_selection"] = focus
+    st.session_state['sample_selection'] = focus
 with st.sidebar:
-    st.header("Samples")
-    choice = st.selectbox("Select sample", options, key="sample_selection")
-    st.caption("Single-user local storage. Frozen Oracle records are never sent to a model.")
-    st.caption(f"Data directory: {store.root}")
+    choice = st.selectbox('Sample', options, key='sample_selection')
+    st.caption('Local only · All durable state lives in Python services')
 
-if choice == "Create a new sample":
-    st.subheader("1 · Capture a paragraph")
-    with st.form("new_source", clear_on_submit=False):
-        text = st.text_area("Original paragraph (up to 200 words)", height=210,
-                            help="One contiguous paragraph. No auto-truncation or semantic preprocessing.")
-        title = st.text_input("Source title / identifier")
-        origin = st.text_input("Source location / citation (optional)")
-        original_date = st.text_input("Original date (if known)")
-        domain = st.selectbox("Domain", DOMAINS, index=4)
-        dependencies = st.text_area("Context dependencies (private; not passed to STU)", height=100)
-        submitted = st.form_submit_button("Create local SERA draft", type="primary")
+if choice == 'Create a new sample':
+    with st.form('new_source'):
+        original = st.text_area('Original paragraph (≤200 words)')
+        title = st.text_input('Title')
+        origin = st.text_input('Origin / citation')
+        date = st.text_input('Original date')
+        domain = st.selectbox('Domain', config['domains'])
+        context = st.text_area('Private context dependencies')
+        submitted = st.form_submit_button('Create sample')
     if submitted:
         try:
-            record = new_record(text, title, origin, original_date, domain, dependencies)
-            store.save_draft(record, event="source_created")
-            st.session_state["_focus_sample"] = record["sample_id"]
+            rec = app.create_sample(original, title=title, origin=origin,
+                                    original_date=date, domain=domain,
+                                    context_dependencies=context)
+            st.session_state['_focus_sample'] = rec['sample_id']
             st.rerun()
-        except Exception as exc:
+        except (ValueError, RuntimeError, OSError) as exc:
             st.error(str(exc))
     st.stop()
 
-try:
-    record = store.load(choice)
-except Exception as exc:
-    st.error(f"Cannot load this sample: {exc}")
+record = app.get_sample(choice)
+source = record['source']
+st.subheader(source.get('title') or 'Sample ' + choice[:8])
+st.caption(f"Sample: {choice} · Version: {record['version']} · {record['status'].upper()}")
+
+if record['status'] == 'frozen':
+    st.success('Frozen private Oracle — read only')
+    st.markdown('**Original paragraph**')
+    st.write(source['original_text'])
+    st.markdown('**Intended meaning**')
+    st.write(record['intention_free_text'])
+    with st.expander('Category prose'):
+        for key, question in config['categories'].items():
+            st.markdown('**' + question + '**')
+            st.write(record['category_prose'].get(key, ''))
+    with st.expander('Semantic units and relationships'):
+        st.dataframe(record['units'], hide_index=True)
+        st.dataframe(record['relations'], hide_index=True)
+    st.download_button('Download PRIVATE Oracle', json.dumps(record, ensure_ascii=False, indent=2),
+                       file_name=f'private-oracle-{choice}-v{record["version"]}.json', mime='application/json')
+    packet = app.model_packet(choice)
+    st.download_button('Download source-only model packet', json.dumps(packet, ensure_ascii=False, indent=2),
+                       file_name=f'stu-source-{choice}.json', mime='application/json')
+    if st.button('Begin amendment (new version)'):
+        command(app.begin_amendment, choice)
     st.stop()
 
-st.subheader(record["source"].get("title") or f"Sample {record['sample_id'][:8]}")
-st.caption(f"Sample {record['sample_id']} · Explication {record['explication_id']} · Version {record['version']} · {record['status'].upper()}")
+st.markdown('### 1. Source')
+with st.form('source_form'):
+    original = st.text_area('Original text', value=source['original_text'],
+                            disabled=bool(record.get('intention_saved_at')))
+    title = st.text_input('Title', value=source.get('title', ''))
+    origin = st.text_input('Origin', value=source.get('origin', ''))
+    date = st.text_input('Original date', value=source.get('original_date', ''))
+    domain = st.selectbox('Domain', config['domains'], index=config['domains'].index(source['domain']))
+    context = st.text_area('Private context', value=source.get('context_dependencies', ''))
+    save_source = st.form_submit_button('Save source/provenance')
+if save_source:
+    command(app.save_source, choice, original_text=original, title=title,
+            origin=origin, original_date=date, domain=domain, context_dependencies=context)
 
-if record["status"] == "frozen":
-    st.success("Frozen Oracle reference · read only")
-    st.markdown("**Original paragraph**")
-    st.write(record["source"]["original_text"])
-    st.markdown("**Your unrestricted intended meaning**")
-    st.write(record["intention_free_text"])
-    with st.expander("Category prose", expanded=False):
-        for key, question in CATEGORIES.items():
-            st.markdown(f"**{question}**")
-            st.write(record["category_prose"].get(key) or "—")
-    with st.expander("Structured semantic representation", expanded=False):
-        st.write("Units")
-        st.dataframe(record["units"], hide_index=True, use_container_width=True)
-        st.write("Directed relationships")
-        st.dataframe(record["relations"], hide_index=True, use_container_width=True)
-    st.download_button("Download PRIVATE Oracle (JSON)", record_json(record),
-                       file_name=f"sera-oracle-{choice}-v{record['version']}.json", mime="application/json")
-    try:
-        packet = store.model_packet(choice)
-    except Exception as exc:
-        st.error(f"STU export integrity error: {exc}")
-    else:
-        st.download_button("Download STU source-only packet (JSON)", record_json(packet),
-                           file_name=f"stu-source-{choice}.json", mime="application/json")
-        st.caption("STU packet contains only original_text, sample_id, source_sha256, and packet_type.")
-    if st.button("Begin an amendment (new version)"):
-        try:
-            store.begin_amendment(choice)
-            st.rerun()
-        except Exception as exc:
-            st.error(f"Cannot begin amendment: {exc}")
+st.markdown('### 2. What did you intend to communicate?')
+with st.form('intention'):
+    intention = st.text_area('Unrestricted explanation (before categories)',
+                             value=record['intention_free_text'], height=190)
+    save_intention = st.form_submit_button('Save unrestricted intention')
+if save_intention:
+    command(app.save_intention, choice, intention)
+if not record.get('intention_saved_at'):
+    st.info('Save your unrestricted intention to unlock categories.')
     st.stop()
 
-# Stage 1: Capture source; source content becomes locked once free intention is saved.
-st.markdown("### 1 · Source")
-with st.form("source_edit"):
-    text = st.text_area("Original paragraph", value=record["source"]["original_text"],
-                        height=150, disabled=bool(record.get("intention_saved_at")))
-    title = st.text_input("Title", value=record["source"].get("title", ""))
-    origin = st.text_input("Citation / origin", value=record["source"].get("origin", ""))
-    original_date = st.text_input("Original date", value=record["source"].get("original_date", ""))
-    domain = st.selectbox("Domain", DOMAINS,
-                          index=DOMAINS.index(record["source"].get("domain", "other")))
-    context_dependencies = st.text_area("Private context dependencies", value=record["source"].get("context_dependencies", ""))
-    st.caption(f"{record['source']['word_count']} words · source SHA-256: {record['source']['source_sha256'][:18]}…")
-    if st.form_submit_button("Save source / provenance"):
-        try:
-            update_source(record, original_text=text, title=title, origin=origin,
-                          original_date=original_date, domain=domain,
-                          context_dependencies=context_dependencies)
-            save_and_rerun(record, "source_saved")
-        except Exception as exc:
-            st.error(str(exc))
-
-# Stage 2: Save unrestricted intention BEFORE category structure is shown.
-st.markdown("### 2 · What did you intend to communicate?")
-st.caption("Unrestricted human explication. Write this before the category questions are revealed. No word limit.")
-with st.form("free_intention"):
-    intention = st.text_area("Your intended meaning", value=record.get("intention_free_text", ""), height=220)
-    if st.form_submit_button("Save unrestricted intention", type="primary" if not record.get("intention_saved_at") else "secondary"):
-        try:
-            save_intention(record, intention)
-            save_and_rerun(record, "intention_saved")
-        except Exception as exc:
-            st.error(str(exc))
-
-if not record.get("intention_saved_at"):
-    st.info("Save your unrestricted intention to unlock category-level explication.")
+st.markdown('### 3. Category explanations')
+with st.form('categories'):
+    prose = {key: st.text_area(prompt, value=record['category_prose'].get(key, ''),
+                               key=f'{choice}-{key}-{record["explication_id"]}')
+             for key, prompt in config['categories'].items()}
+    save_categories = st.form_submit_button('Save category prose')
+if save_categories:
+    command(app.save_categories, choice, prose)
+if not record.get('categories_saved_at'):
+    st.info('Save categories (empty categories are valid) to unlock semantic structure.')
     st.stop()
 
-# Stage 3: Save category-level prose BEFORE structure is shown.
-st.markdown("### 3 · Explain the categories in prose")
-st.caption("Empty categories are valid. Describe relationships in your own language before translating them into structured records.")
-with st.form("category_prose"):
-    prose = {key: st.text_area(question, value=record["category_prose"].get(key, ""),
-                               height=90, key=f"category-{key}-{record['explication_id']}")
-             for key, question in CATEGORIES.items()}
-    if st.form_submit_button("Save category-level prose", type="primary" if not record.get("categories_saved_at") else "secondary"):
-        try:
-            save_category_prose(record, prose)
-            save_and_rerun(record, "categories_saved")
-        except Exception as exc:
-            st.error(str(exc))
+st.markdown('### 4. Semantic units')
+unit_columns = ['unit_id','kind','text','importance','polarity','source_support','notes']
+with st.form('unit_editor'):
+    units = st.data_editor(pd.DataFrame(record['units'], columns=unit_columns).fillna(''),
+        num_rows='dynamic', hide_index=True,
+        column_config={'kind': st.column_config.SelectboxColumn(options=config['unit_kinds']),
+                       'importance': st.column_config.SelectboxColumn(options=config['importance']),
+                       'polarity': st.column_config.SelectboxColumn(options=config['polarity'])})
+    save_units = st.form_submit_button('Save semantic units')
+if save_units:
+    command(app.save_units, choice, rows(units))
 
-if not record.get("categories_saved_at"):
-    st.info("Save the category prose (even if some fields are blank) to unlock structured units and relationships.")
-    st.stop()
+st.markdown('### 4b. Directed relationships')
+relation_columns = ['relation_id','from_unit_id','relation_type','to_unit_id','explanation']
+with st.form('relation_editor'):
+    relations = st.data_editor(pd.DataFrame(record['relations'], columns=relation_columns).fillna(''),
+        num_rows='dynamic', hide_index=True,
+        column_config={'relation_type': st.column_config.SelectboxColumn(options=config['relation_types'])})
+    save_relations = st.form_submit_button('Save directed relationships')
+if save_relations:
+    command(app.save_relations, choice, rows(relations))
 
-# Stage 4: Human assigns units and relationships. The table may be empty until saved.
-st.markdown("### 4 · Semantic units")
-st.caption("One row per claim, actor, negation, condition, etc. IDs are generated on save; existing IDs remain stable.")
-unit_cols = ["unit_id", "kind", "text", "importance", "polarity", "source_support", "notes"]
-with st.form("semantic_units"):
-    units_df = pd.DataFrame(record["units"], columns=unit_cols).fillna("")
-    edited_units = st.data_editor(
-        units_df, num_rows="dynamic", hide_index=True, use_container_width=True,
-        column_config={
-            "unit_id": st.column_config.TextColumn("Unit ID (blank = auto)"),
-            "kind": st.column_config.SelectboxColumn("Kind", options=list(UNIT_KINDS)),
-            "text": st.column_config.TextColumn("Meaning / claim", width="large"),
-            "importance": st.column_config.SelectboxColumn("Importance", options=list(IMPORTANCE)),
-            "polarity": st.column_config.SelectboxColumn("Polarity", options=list(POLARITY)),
-            "source_support": st.column_config.TextColumn("Source support (optional)"),
-            "notes": st.column_config.TextColumn("Notes (optional)"),
-        }, key=f"units-{record['explication_id']}")
-    if st.form_submit_button("Save semantic units"):
-        try:
-            save_units(record, edited_rows(edited_units))
-            save_and_rerun(record, "units_saved")
-        except Exception as exc:
-            st.error(str(exc))
-
-st.markdown("### 4b · Relationships between units")
-st.caption("Save units first, then refer to their IDs. Relations are directed: FROM → TO. 'other' requires an explanation.")
-relation_cols = ["relation_id", "from_unit_id", "relation_type", "to_unit_id", "explanation"]
-unit_ids = [u["unit_id"] for u in record["units"]]
-if unit_ids:
-    st.caption("Available unit IDs: " + ", ".join(unit_ids))
-with st.form("semantic_relations"):
-    relations_df = pd.DataFrame(record["relations"], columns=relation_cols).fillna("")
-    edited_relations = st.data_editor(
-        relations_df, num_rows="dynamic", hide_index=True, use_container_width=True,
-        column_config={
-            "relation_id": st.column_config.TextColumn("Relation ID (blank = auto)"),
-            "from_unit_id": st.column_config.SelectboxColumn("From unit", options=unit_ids),
-            "relation_type": st.column_config.SelectboxColumn("Relation", options=list(RELATION_TYPES)),
-            "to_unit_id": st.column_config.SelectboxColumn("To unit", options=unit_ids),
-            "explanation": st.column_config.TextColumn("Explanation / custom relation", width="large"),
-        }, key=f"relations-{record['explication_id']}")
-    if st.form_submit_button("Save relationships"):
-        try:
-            save_relations(record, edited_rows(edited_relations))
-            save_and_rerun(record, "relations_saved")
-        except Exception as exc:
-            st.error(str(exc))
-
-st.markdown("### 5 · Review, freeze, and export")
-with st.expander("Inspect full draft JSON", expanded=False):
+st.markdown('### 5. Review and freeze')
+with st.expander('Inspect complete draft'):
     st.json(record)
-errors = validate_freeze(record)
-if errors:
-    for error in errors:
-        st.warning(error)
-else:
-    st.success("Draft passes structural validation. Freezing will create a private Oracle and a separate allowlisted STU packet.")
-with st.form("freeze_confirmation"):
-    confirmed = st.checkbox("I have reviewed this record. Freeze the current version and keep it immutable.")
-    clicked = st.form_submit_button("Freeze Oracle reference", type="primary", disabled=bool(errors))
-    if clicked:
-        if not confirmed:
-            st.error("Confirm freeze explicitly before continuing.")
-        else:
-            try:
-                store.freeze(record)
-                st.rerun()
-            except Exception as exc:
-                st.error(f"Freeze failed: {exc}")
+errors = app.validation_errors(choice)
+for item in errors:
+    st.warning(item)
+with st.form('freeze'):
+    confirmed = st.checkbox('I reviewed these layers and want to freeze this Oracle version.')
+    freeze = st.form_submit_button('Freeze private Oracle', disabled=bool(errors))
+if freeze:
+    if not confirmed:
+        st.error('Explicit confirmation is required.')
+    else:
+        command(app.freeze, choice, expected_version=record['version'])

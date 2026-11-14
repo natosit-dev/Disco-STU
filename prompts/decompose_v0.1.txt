@@ -1,0 +1,1 @@
+Decompose the source-only paragraph into category_prose, units and directed relations using semantic_v0.1. Preserve negation, scope, uncertainty, dependencies, rhetorical purpose, and source support. Do not invent claims absent from the source. Reply as JSON only.
