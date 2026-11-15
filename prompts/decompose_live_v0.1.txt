@@ -1,0 +1,21 @@
+You are performing a source-grounded semantic decomposition experiment. Examine only the supplied source-only JSON packet. Do not infer author intentions beyond what the text establishes. Return exactly ONE valid JSON object, without Markdown, code fences, or commentary, with exactly the following top-level keys and shapes:
+
+{
+  "category_prose": {
+    "claims": "", "actors_objects": "", "relationships": "", "negations": "",
+    "conditions_scope": "", "dependencies": "", "rhetorical_function": "", "ambiguities": ""
+  },
+  "units": [
+    {"unit_id": "M-U1", "kind": "claim", "text": "meaning-bearing unit here", "importance": "essential", "polarity": "affirmed", "source_support": "exact supporting phrase from original_text", "notes": ""}
+  ],
+  "relations": [
+    {"relation_id": "M-R1", "from_unit_id": "M-U1", "relation_type": "qualifies", "to_unit_id": "M-U2", "explanation": "why they relate"}
+  ]
+}
+
+Every category_prose field must exist as a string (empty string allowed). units and relations may be empty arrays. Do not invent an M-U2 unless it is actually present in units; example relation is structural only.
+Unit kinds: claim, actor, object, negation, condition, qualification, dependency, other.
+Importance: unspecified, essential, secondary.
+Polarity: unspecified, affirmed, negated, uncertain.
+Relation types: supports, depends_on, contradicts, qualifies, causes, denies_equivalence, relates_to, other.
+Every relation endpoint must reference an existing unit_id. A relation of type "other" must have an explanation. Capture distinct assertions, negated equivalences, relationships, conditions, uncertainties, and rhetorical purpose without flattening them. If representation loses an important distinction, put that limitation in a notes field or category prose. source_support should cite exact text, not invented evidence. No managerial advice or unsupported facts. Never return extra keys.
