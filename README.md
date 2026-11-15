@@ -36,6 +36,8 @@ Use the **SERA** page in the sidebar. Records live in `./data/` (gitignored). To
 
 Open SERA to freeze the private human Oracle, then Transform to select a hosted model. The masked API key is held in Streamlit session memory, not committed to Git. View full live experiment details in [Live inference notes](docs/stu/LIVE_INFERENCE_v0.1.md). Existing synthetic fixtures remain available under a collapsed diagnostics section.
 
+**Review policy:** Oracle-versus-neutral and Oracle-versus-commercial appear first. Eight additional diagnostic comparisons are optional. Completed runs now create both original-versus-final comparisons too. For an older eight-comparison study, open Results and explicitly select **Add missing comparisons for this study**; no model calls or old reviews are changed. Results also exposes the exact frozen reconstruction projection for inspection.
+
 [Implementation plan](docs/sera/BUILD_PLAN_v0.1.md) · [Data contract](docs/sera/DATA_CONTRACT.md) · [Shared semantic schema](schemas/semantic_v0.1.json)
 
 ## The Nerd implementation handoff
@@ -57,7 +59,7 @@ I'm building something that takes text I've written, a few paragraphs from the l
 Two licenses apply to original material that we have the rights to distribute:
 
 - **Documentation** (`docs/`): [CC BY-NC-SA 4.0 International](LICENSE-DOCS.md). Noncommercial reuse and adaptations permitted with attribution and ShareAlike.
-- **Software code:** [PolyForm Noncommercial 1.0.0](LICENSE-CODE.md) for new project-owned SERA software. STU execution and Review are future work.
+- **Software code:** [PolyForm Noncommercial 1.0.0](LICENSE-CODE.md) for new project-owned SERA software. New STU and Review code is also subject to the project's software license; consult individual file provenance for any imported material.
 
 These **are not OSI-approved open-source licenses**, because they restrict commercial purposes. Public availability does not give others permission to resell the work.
 
