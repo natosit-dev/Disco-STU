@@ -257,6 +257,10 @@ class StuApplication:
                 }
         return result
 
+    def active_review(self) -> dict | None:
+        """Single backend authority for active human explanation timer."""
+        return self.review.active_review()
+
     def begin_gap_explanation(self, cid: str) -> dict:
         return self.review.begin(cid)
 
@@ -368,6 +372,20 @@ class StuApplication:
                 'completed_primary_reviews': completed_primary,
                 'diagnostic_comparison_count': len(comparisons) - len(primary),
                 'completed_reviews': sum(rev['status'] == 'completed' for rev in reviews),
+                # Free prose and explicit no-gap are PRIMARY outcomes; optional
+                # typed discrepancy labels are secondary metadata.
+                'free_text_findings_count': sum(
+                    rev['status'] == 'completed' and
+                    rev['explicit_meaningful_difference'] for rev in reviews),
+                'explicit_no_gap_reviews': sum(
+                    rev['status'] == 'completed' and
+                    rev['no_meaningful_gap'] for rev in reviews),
+                'reviews_with_incomplete_labor_measurement': sum(
+                    rev['status'] == 'completed' and
+                    rev['labor_measurement_incomplete'] for rev in reviews),
+                'reviews_reaching_15min_budget': sum(
+                    rev['status'] == 'completed' and
+                    rev['reached_15min_budget'] for rev in reviews),
                 'review_gap_labels': kinds, 'completed_explanation_active_seconds':
                 [rev['active_seconds'] for rev in reviews if rev['status'] == 'completed'],
                 'paired_reconstructions': pairs,
