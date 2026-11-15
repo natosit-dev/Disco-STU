@@ -15,7 +15,7 @@ if not studies:
     st.stop()
 study_id = st.selectbox('Study', [x['study_id'] for x in studies])
 report = app.get_results(study_id)
-st.metric('Recorded runs', report['planned_run_count'])
+st.metric('Recorded runs', report['recorded_run_count'])
 st.metric('Valid paired outputs', len(report['paired_reconstructions']))
 st.metric('Completed human reviews', report['completed_reviews'])
 st.subheader('Coverage')
@@ -27,10 +27,29 @@ for run in report['runs']:
         st.dataframe(run['steps'], hide_index=True)
 st.subheader('Verification')
 st.json(report['validation'])
-if st.button('Write private-safe export'):
+st.subheader('Export study evidence')
+st.warning('The complete bundle includes original writing, private SERA intention, raw requests/responses and human explanations. Do not publish it unreviewed.')
+if st.button('Create complete private ZIP bundle'):
     try:
         info = app.export_study(study_id)
-        st.success('Wrote ' + info['path'])
-        st.caption('Excluded private source, Oracle, raw responses and human explanations.')
-    except (ValueError, RuntimeError, OSError) as exc:
+        st.session_state['stu_export'] = {'study_id': study_id, 'kind': 'full'}
+        st.success('Complete bundle written to ' + info['path'])
+    except (ValueError, RuntimeError, OSError, KeyError) as exc:
         st.error(str(exc))
+if st.button('Create redacted sharing summary (JSON)'):
+    try:
+        info = app.export_study(study_id, privacy_level='safe')
+        st.session_state['stu_export'] = {'study_id': study_id, 'kind': 'safe'}
+        st.success('Redacted summary written to ' + info['path'])
+    except (ValueError, RuntimeError, OSError, KeyError) as exc:
+        st.error(str(exc))
+choice = st.session_state.get('stu_export')
+if choice and choice['study_id'] == study_id:
+    kind = choice['kind']
+    extension = 'full.zip' if kind == 'full' else 'safe.json'
+    st.download_button(
+        label='Download ' + ('complete private bundle' if kind == 'full' else 'redacted JSON'),
+        data=app.get_export_bytes(study_id, privacy_level=kind),
+        file_name=study_id + '-' + extension,
+        mime='application/zip' if kind == 'full' else 'application/json',
+    )

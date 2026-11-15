@@ -29,7 +29,7 @@ def test_synthetic_full_pipeline_including_actual_sera(tmp_path):
     assert comp['reference_view']['private']
     assert comp['reference_view']['payload']['intention_free_text'].startswith('SYNTHETIC ORACLE')
     assert comp['target_view']['payload'] == FIXTURES['F01']['neutral']
-    result = app.export_study(report['study_id'])
+    result = app.export_study(report['study_id'], privacy_level='safe')
     exported = Path(result['path']).read_text(encoding='utf-8')
     assert 'SYNTHETIC ORACLE TEST REFERENCE' not in exported
     assert FIXTURES['F01']['source'] not in exported

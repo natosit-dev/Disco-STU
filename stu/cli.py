@@ -46,6 +46,8 @@ def main(argv=None) -> int:
     for command in ('validate', 'analyze', 'export'):
         sub = commands.add_parser(command)
         sub.add_argument('--study', required=True)
+        if command == 'export':
+            sub.add_argument('--privacy-level', choices=('full', 'safe'), default='full')
     args = p.parse_args(argv)
     app = StuApplication(args.data_root)
     try:
@@ -63,7 +65,7 @@ def main(argv=None) -> int:
         elif args.command == 'analyze':
             result = app.get_results(args.study)
         else:
-            result = app.export_study(args.study)
+            result = app.export_study(args.study, privacy_level=args.privacy_level)
     except (ValueError, RuntimeError, FileNotFoundError, KeyError) as exc:
         print(json.dumps({'ok': False, 'error': str(exc)}))
         return 1

@@ -6,6 +6,7 @@ from collections import Counter
 from pathlib import Path
 
 from sera.application import SeraApplication
+from .bundle import build_full_bundle
 from .contracts import canonical, digest, now
 from .fixtures import FIXTURES, get_fixture
 from .review import HumanReview
@@ -152,7 +153,7 @@ class StuApplication:
                               'commercial_output_sha256': c['output_sha256'],
                               'human_semantic_verdict': 'not_automatically_assessed'})
         return {'study_id': study_id, 'mode': study['mode'], 'synthetic': True,
-                'planned_run_count': len(runs), 'run_status_counts': counts,
+                'recorded_run_count': len(runs), 'run_status_counts': counts,
                 'runs': [{'run_id': r['run_id'], 'status': r['status'], 'steps': r['steps']} for r in runs],
                 'comparison_count': len(comparisons),
                 'completed_reviews': sum(rev['status'] == 'completed' for rev in reviews),
@@ -161,10 +162,13 @@ class StuApplication:
                 'paired_reconstructions': pairs, 'research_verdict': 'NO EMPIRICAL MODEL RESULTS',
                 'validation': self.validate(study_id)}
 
-    def export_study(self, study_id: str, *, privacy_level: str = 'safe') -> dict:
-        if privacy_level != 'safe':
-            raise ValueError('Only private-safe export implemented; explicit publication is out of scope.')
+    def export_study(self, study_id: str, *, privacy_level: str = 'full') -> dict:
+        """Default: complete private bundle. Explicit 'safe': redacted sharing summary."""
+        if privacy_level not in ('full', 'safe'):
+            raise ValueError('Export privacy_level must be full or safe.')
         report = self.get_results(study_id)
+        if privacy_level == 'full':
+            return build_full_bundle(self.store, self.capture, study_id, report)
         summary = {'export_schema': 'stu.safe.v0.1', 'created_at': now(),
                    'privacy_level': 'safe', 'study_id': study_id,
                    'report': report,
@@ -174,3 +178,12 @@ class StuApplication:
         atomic_json(destination, summary)
         return {'path': str(destination), 'sha256': digest(canonical(summary)),
                 'privacy_level': 'safe', 'report': report}
+
+    def get_export_bytes(self, study_id: str, *, privacy_level: str = 'full') -> bytes:
+        """Allow the thin UI to download an explicitly created local export."""
+        from .storage import safe_id
+        if privacy_level not in ('full', 'safe'):
+            raise ValueError('Export privacy_level must be full or safe.')
+        self.store.get_study(study_id)
+        suffix = 'full.zip' if privacy_level == 'full' else 'safe.json'
+        return (self.store.root / 'exports' / f'{safe_id(study_id)}-{suffix}').read_bytes()

@@ -24,7 +24,8 @@ The CLI and Streamlit call `stu.application.StuApplication` and `sera.applicatio
 ```bash
 python -m stu.cli validate --study <uuid>
 python -m stu.cli analyze --study <uuid>
-python -m stu.cli export --study <uuid>
+python -m stu.cli export --study <uuid>                      # complete private ZIP (default)
+python -m stu.cli export --study <uuid> --privacy-level safe # redacted JSON
 python -m stu.cli run --study <uuid> --adapter fixture --mode synthetic_test
 ```
 
@@ -37,5 +38,7 @@ Persistent data are under `data/`, or another directory via the `SERA_DATA_DIR` 
 - The fixture adapter has deterministic canned outputs; an unknown fixture fails. `STRUCTURAL` is an explicitly meaningless placeholder, not a cheap NLP model.
 - Distinct review tasks represent human-writing, model-decomposition, local reconstruction and condition-contrast boundaries. Do not collapse them into one automatic accuracy score.
 - Timed review counts human explanation intervals explicitly closed by review actions; interrupted/long gaps are flagged instead of silently inflating counted active time.
-- Safe exports omit source text, private Oracle, raw model requests/responses and human explanation content. Run directories are still private runtime artifacts; keep data excluded from Git.
+- **Default full export** writes a private ZIP to `data/exports/<study-id>-full.zip`: pinned SERA Oracle, source, SERA freeze history, study/run manifests and journals, every run artifact, comparison and review event, versioned prompts/schema and results, plus a SHA-256 file inventory. Never publish it unreviewed. The runner still only sees the four-field source packet.
+- The optional **redacted summary** (`--privacy-level safe`) omits source text, Oracle, raw model requests/responses and human explanation content. Both exports remain under gitignored `data/`.
+- `recorded_run_count` counts actual stored runs, not planned study allocations. Older saved safe JSON exports may still have the old `planned_run_count` name.
 - This is a single-user prototype. It does not provide cross-process locking, transactional multi-file writes, cryptographic attestation, or PHI safeguards. Do not use for restricted clinical data.
