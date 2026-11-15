@@ -51,7 +51,7 @@ def test_review_page_uses_source_and_final_output_as_primary_views(tmp_path, mon
     rendered = ' '.join(element.value for element in ui.markdown)
     assert 'Original writing' in rendered
     assert 'Model reconstruction' in rendered
-    assert 'Frozen authorial intention' in rendered
+    assert any('Frozen authorial intention' in expander.label for expander in ui.get('expander'))
     assert any('Gemma' in text.value or 'Synthetic' in text.value
                for text in ui.caption)
 

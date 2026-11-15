@@ -167,3 +167,35 @@ def test_v2_amendment_remains_v2_and_pinned_version_stays_historical(tmp_path):
                                     sha256=old['artifact_sha256'])
     assert pinned['intention_free_text'] == 'Meaning v1'
     assert pinned['source']['title'] == 'Original name'
+
+def test_v2_study_snapshots_authorial_contract_and_exports_it(tmp_path):
+    from zipfile import ZipFile
+    from stu.application import StuApplication
+
+    app = StuApplication(tmp_path / 'data')
+    source = app.capture.create_sample('Velocity is not productivity.', title='Source 01')
+    sid = source['sample_id']
+    app.capture.save_authoring_draft(sid,
+        original_text='Velocity is not productivity.', title='Source 01',
+        origin='', original_date='', domain='philosophical',
+        context_dependencies='', intention='Human needs, not speed, define useful results.',
+        characteristics=['denies_equivalence'])
+    app.capture.freeze(sid)
+    study = app.create_study(sid, fixture_id='STRUCTURAL')
+    path = 'schemas/sera_capture_v0.2.json'
+    assert path in study['protocol_files']
+    expected = app.store.load_protocol_file(study['study_id'], path)
+    assert json.loads(expected)['properties']['schema_version']['const'] == '0.2.0'
+    run = app.run_sample(study['study_id'])
+    assert run['status'] == 'completed'
+    assert app.validate(study['study_id'])['valid'] is True
+    info = app.export_study(study['study_id'])
+    with ZipFile(info['path']) as archive:
+        assert archive.read(path) == expected
+        oracle = json.loads(archive.read('private/sera/' + sid + '/oracle-v1.json'))
+        assert oracle['schema_version'] == SCHEMA_V2
+        assert oracle['characteristics'] == ['denies_equivalence']
+        model_request = archive.read(
+            'runs/' + run['run_id'] + '/artifacts/decompose.request.json')
+        assert b'Human needs' not in model_request
+        assert b'characteristics' not in model_request
