@@ -97,6 +97,10 @@ def test_optional_redacted_export_remains_safe_and_renamed(tmp_path):
     assert FIXTURES['F01']['source'] not in contents
     assert json.loads(contents)['report']['recorded_run_count'] == 1
     assert 'planned_run_count' not in contents
+    # Each export is explicit; requesting the redacted summary does not create a ZIP.
+    with pytest.raises(FileNotFoundError):
+        app.get_export_bytes(result['study_id'])
+    app.export_study(result['study_id'])
     assert app.get_export_bytes(result['study_id'])[:2] == b'PK'
 
 
