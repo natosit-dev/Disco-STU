@@ -40,6 +40,17 @@ Open SERA to freeze the private human Oracle, then Transform to select a hosted 
 
 [Implementation plan](docs/sera/BUILD_PLAN_v0.1.md) · [Data contract](docs/sera/DATA_CONTRACT.md) · [Shared semantic schema](schemas/semantic_v0.1.json)
 
+## Human-first workflow (UI v0.2)
+
+Start with **Write → Explain → Run → Review**, not UUIDs and semantic graph editing.
+
+- New SERA v0.2 sources require only a saved, unrestricted intended-meaning explanation before an explicit freeze. Optional characteristics, category questions and graphs are in Advanced; older v0.1 Oracles retain their stricter historical rules.
+- Review displays original writing against each final reconstruction. The pinned authorial intention is optional reference material; diagnostics are optional.
+- Results foregrounds completion and human review progress, with raw evidence and archived-run maintenance in expanders.
+- All UUIDs, timestamps, source packets, provider responses, hashes, review event journals and private ZIP exports remain available.
+
+[UI v0.2 walkthrough and compatibility rules](docs/stu/UI_WORKFLOW_V02.md) · [SERA v0.2 capture contract](docs/sera/DATA_CONTRACT_V02.md)
+
 ## The Nerd implementation handoff
 
 [Complete STU pipeline handoff v0.1](docs/handoff/NERD_HANDOFF_STU_COMPLETE_PIPELINE_v0.1_2026-11-14.md) — build the remaining model runner, paired reconstructions, Review and timing, analysis and tests as one coherent system. Includes a five-step user walkthrough for later acceptance testing.
