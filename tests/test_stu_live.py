@@ -351,3 +351,34 @@ def test_existing_live_run_gains_original_final_comparisons_without_api_call(tmp
     with ZipFile(app.export_study(study['study_id'])['path']) as archive:
         names = archive.namelist()
         assert all('comparisons/' + cid + '.json' in names for cid in ids)
+
+
+def test_deepseek_three_stage_live_model_retains_frozen_projection(tmp_path, monkeypatch):
+    # New DeepSeek study uses same frozen SERA content as the Gemma fixture
+    # without forwarding Oracle content or the configured Adaption stack.
+    app, _, sid = capture_and_study(tmp_path, monkeypatch)
+    study = app.create_study(sid, mode='live', model_id='deepseek-v4-flash')
+    provider = MockProvider([
+        MockResponse(json.dumps(decomposition()), model='deepseek-v4-flash',
+                     response_id='resp_mock_decompose'),
+        MockResponse('Neutral output', model='deepseek-v4-flash',
+                     response_id='resp_mock_neutral'),
+        MockResponse('Commercial output', model='deepseek-v4-flash',
+                     response_id='resp_mock_commercial'),
+    ])
+    use_mock(monkeypatch, provider)
+    run = app.run_sample(study['study_id'], api_key='fake-test-key')
+    assert run['status'] == 'completed'
+    assert len(provider.calls) == 3
+    assert all(c['model'] == 'deepseek-v4-flash' and not c['model'].startswith('stack:')
+               for c in provider.calls)
+    assert all(c['store'] is False and c['agentic_memory'] is False
+               and c['tools'] == [] for c in provider.calls)
+    assert provider.calls[1]['input'] == provider.calls[2]['input']
+    assert 'source_support' not in provider.calls[1]['input']
+    assert app.validate(study['study_id'])['valid']
+    report = app.get_results(study['study_id'])
+    assert report['model_id'] == 'deepseek-v4-flash'
+    assert report['recorded_run_count'] == 1
+    assert all(step['actual_model_id'] == 'deepseek-v4-flash'
+               for step in report['runs'][0]['steps'])
