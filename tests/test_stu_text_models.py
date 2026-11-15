@@ -78,5 +78,5 @@ def test_transform_and_api_test_show_text_only_dropdowns(tmp_path, monkeypatch):
         assert not ui.exception, list(ui.exception)
         choices = [s for s in ui.selectbox if s.label == 'Hosted model']
         assert len(choices) == 1
-        assert tuple(choices[0].options) == TEXT_ONLY_MODELS
+        assert tuple(choices[0].options) == tuple(model_name(mid) for mid in TEXT_ONLY_MODELS)
         assert choices[0].value == 'deepseek-v4-flash'
