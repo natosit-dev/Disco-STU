@@ -29,6 +29,15 @@ c.metric('Primary reviews completed',
          f"{report['completed_primary_reviews']} of {report['primary_comparison_count']}")
 st.caption('Primary reviews are the original writing compared with each final model output. '
            'Other comparisons are optional diagnostic instruments.')
+st.markdown('**Human findings and timing quality**')
+x, y, z = st.columns(3)
+x.metric('Reviews with written differences', report['free_text_findings_count'])
+y.metric('Explicit no-meaningful-gap reviews', report['explicit_no_gap_reviews'])
+z.metric('Reviews with incomplete labor measurement',
+         report['reviews_with_incomplete_labor_measurement'])
+st.caption('Optional discrepancy labels are separate from the author's free-text finding. '
+           'Recorded active time does not necessarily equal total labor. '
+           'A cumulative 15-minute threshold is independent of uncertain long intervals.')
 
 st.subheader('Run history')
 for run in app.list_review_runs(study_id):
@@ -81,7 +90,9 @@ if prepared and prepared['study_id'] == study_id:
 
 with st.expander('Technical evidence and coverage'):
     st.json({k: report[k] for k in ('run_status_counts', 'comparison_count',
-        'diagnostic_comparison_count', 'review_gap_labels',
+        'diagnostic_comparison_count', 'free_text_findings_count',
+        'explicit_no_gap_reviews', 'reviews_with_incomplete_labor_measurement',
+        'reviews_reaching_15min_budget', 'review_gap_labels',
         'completed_explanation_active_seconds')})
     for run in report['runs']:
         with st.expander('Recorded stages · ' + run['run_id'][:8]):
