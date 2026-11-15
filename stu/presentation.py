@@ -76,4 +76,8 @@ def comparison_name(comp: dict, *, run: dict | None = None,
         state = comp.get("review", {})
         label = state.get("status", "not_started").replace("_", " ").title()
         name += " · " + label
+        if state.get("labor_measurement_incomplete"):
+            name += " · Timing incomplete"
+        elif state.get("timing_uncertain"):
+            name += " · Time uncertain"
     return name
