@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SERA v0.2 Authorial Capture Record",
+  "description": "Human-first authored meaning. The v0.1.0 contract stays immutable and is not upgraded in place.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "sample_id",
+    "explication_id",
+    "status",
+    "source",
+    "intention_free_text",
+    "characteristics",
+    "category_prose",
+    "units",
+    "relations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "sample_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "explication_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "frozen"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "original_text",
+        "source_sha256",
+        "word_count"
+      ],
+      "properties": {
+        "original_text": {
+          "type": "string"
+        },
+        "source_sha256": {
+          "type": "string"
+        },
+        "word_count": {
+          "type": "integer",
+          "maximum": 200
+        },
+        "title": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "original_date": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "context_dependencies": {
+          "type": "string"
+        }
+      }
+    },
+    "intention_free_text": {
+      "type": "string"
+    },
+    "characteristics": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "context_not_explicit",
+          "denies_equivalence",
+          "conditions_or_dependencies",
+          "intentional_ambiguity",
+          "rhetorical_form"
+        ]
+      }
+    },
+    "category_prose": {
+      "type": "object",
+      "description": "Optional advanced eight prose questions; empty strings allowed."
+    },
+    "units": {
+      "type": "array",
+      "description": "Optional; validation checks IDs and references if present."
+    },
+    "relations": {
+      "type": "array",
+      "description": "Optional; validation checks reference existence if present."
+    }
+  }
+}
