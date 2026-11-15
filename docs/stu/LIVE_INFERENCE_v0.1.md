@@ -51,8 +51,10 @@ eight comparisons and review events. To add the two new records **without
 calling the model again**, open **Results → Archived runs: add missing
 original-to-final comparisons → Add missing comparisons for this study**.
 This is an explicit, idempotent action; merely opening Results does not
-alter archived evidence. A newly generated complete private ZIP will
-include the added comparison records.
+alter archived evidence. When new records are added, the existing study
+event journal receives one append-only `comparisons_reconciled` entry;
+old event records, comparisons and human reviews remain untouched. A newly
+generated complete private ZIP includes the added comparisons and event.
 
 For live `decomposition_vs_neutral` and `decomposition_vs_commercial`
 diagnostics, **Results → Optional reconstruction diagnostics** displays
