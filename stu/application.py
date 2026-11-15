@@ -15,9 +15,13 @@ from .fixtures import FIXTURES, get_fixture
 from .review import HumanReview
 from .runner import ExperimentRunner, prompt_hashes
 from .storage import StuStore, atomic_json, EventJournal
+from .presentation import (study_name, run_name, comparison_name, model_name,
+                           sample_name)
 
 
-PRIMARY_REVIEW_KINDS = ('oracle_vs_neutral', 'oracle_vs_commercial')
+# Primary HUMAN task: compare authored original with final reconstructed output.
+# The frozen Oracle remains accessible as context, not silently substituted.
+PRIMARY_REVIEW_KINDS = ('original_vs_neutral', 'original_vs_commercial')
 ORIGINAL_FINAL_KINDS = frozenset(('original_vs_neutral', 'original_vs_commercial'))
 RECONSTRUCTION_DIAGNOSTIC_KINDS = ('decomposition_vs_neutral', 'decomposition_vs_commercial')
 
@@ -30,6 +34,86 @@ class StuApplication:
 
     def list_studies(self) -> list[dict]:
         return self.store.list_studies()
+
+    def list_study_options(self, *, with_runs: bool = False) -> list[dict]:
+        """Reviewer-only labels from historically pinned SERA, never inferred metadata."""
+        options = []
+        for study in self.list_studies():
+            if with_runs and not study['runs']:
+                continue
+            pinned = self.store.private_oracle_reference(study['study_id'])
+            oracle = self.capture.get_frozen_version(
+                pinned['sample_id'], pinned['version'],
+                explication_id=pinned['explication_id'],
+                sha256=pinned['artifact_sha256'])
+            options.append({
+                'study_id': study['study_id'],
+                'label': study_name(study, oracle['source']),
+                'source_title': sample_name(oracle['source']),
+                'created_at': study['created_at'],
+                'mode': study['mode'],
+                'pinned_oracle_version': pinned['version'],
+                'run_count': len(study['runs']),
+            })
+        return sorted(options, key=lambda o: (o['created_at'], o['study_id']), reverse=True)
+
+    def list_review_runs(self, study_id: str) -> list[dict]:
+        study = self.get_study(study_id)
+        runs = []
+        for run_id in study['runs']:
+            run = self.store.get_run(run_id)
+            if run['study_id'] != study_id:
+                raise RuntimeError('Run belongs to another study.')
+            runs.append({
+                'run_id': run_id, 'study_id': study_id,
+                'label': run_name(run), 'model': model_name(run['model_profile']),
+                'created_at': run['started_at'], 'status': run['status'],
+            })
+        return sorted(runs, key=lambda o: (o['created_at'], o['run_id']), reverse=True)
+
+    def list_review_choices(self, study_id: str, run_id: str, *,
+                            diagnostics: bool = False) -> list[dict]:
+        if run_id not in self.get_study(study_id)['runs']:
+            raise ValueError('Selected run is not part of study.')
+        run = self.store.get_run(run_id)
+        return [dict(comp, label=comparison_name(comp, run=run))
+                for comp in self.list_comparisons(study_id)
+                if comp['run_id'] == run_id and
+                (diagnostics or comp['kind'] in PRIMARY_REVIEW_KINDS)]
+
+    def get_review_context(self, comparison_id: str) -> dict:
+        """Human-readable final-outcome view with on-demand pinned Oracle."""
+        comp = self.get_comparison(comparison_id)
+        study = self.get_study(comp['study_id'])
+        run = self.store.get_run(comp['run_id'])
+        pinned = self.store.private_oracle_reference(study['study_id'])
+        oracle = self.capture.get_frozen_version(
+            pinned['sample_id'], pinned['version'],
+            explication_id=pinned['explication_id'],
+            sha256=pinned['artifact_sha256'])
+        # The source and Oracle are loaded for review only; no model request.
+        source = oracle['source']
+        output = comp['target_view']['payload']
+        output_text = output if isinstance(output, str) else json.dumps(
+            output, ensure_ascii=False, indent=2)
+        return {
+            'comparison': comp, 'study_id': study['study_id'],
+            'run_id': run['run_id'], 'run_label': run_name(run),
+            'source_title': sample_name(source),
+            'source_text': source['original_text'],
+            'original_writing_date': source.get('original_date', ''),
+            'source_model': model_name(run['model_profile']),
+            'oracle_version': pinned['version'],
+            'oracle_intention': oracle['intention_free_text'],
+            'oracle_categories': oracle.get('category_prose', {}),
+            'oracle_characteristics': oracle.get('characteristics', []),
+            'oracle_units': oracle.get('units', []),
+            'oracle_relations': oracle.get('relations', []),
+            'output_text': output_text,
+            'label': comparison_name(comp, run=run),
+            'review': comp['review'],
+            'is_primary': comp['kind'] in PRIMARY_REVIEW_KINDS,
+        }
 
     def create_study(self, sample_id: str, *, fixture_id: str = 'STRUCTURAL',
                      mode: str = 'synthetic_test',
