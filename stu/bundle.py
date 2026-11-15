@@ -93,17 +93,29 @@ def build_full_bundle(store: StuStore, capture, study_id: str, report: dict) -> 
             EventJournal(review_journal).read()
             add_file(f'reviews/{cid}/events.jsonl', review_journal)
 
-    root = Path(__file__).resolve().parents[1]
-    schema_bytes = (root / 'schemas' / 'semantic_v0.1.json').read_bytes()
-    if digest(schema_bytes) != study['semantic_schema_sha256']:
-        raise RuntimeError('Semantic schema changed since study creation.')
-    add('schemas/semantic_v0.1.json', schema_bytes)
-    for kind in ('decompose', 'neutral', 'commercial'):
-        prompt_path = root / 'prompts' / f'{kind}_v0.1.txt'
-        prompt_bytes = prompt_path.read_bytes()
-        if digest(prompt_bytes) != study['prompt_sha256'][kind]:
-            raise RuntimeError(f'Prompt {kind} changed since study creation.')
-        add(f'prompts/{kind}_v0.1.txt', prompt_bytes)
+    if study.get('protocol_files'):
+        # New studies pin exact bytes. Export needs NO mutable repository files.
+        for rel in sorted(study['protocol_files']):
+            add(rel, store.load_protocol_file(study_id, rel))
+        schema_bytes = store.load_protocol_file(study_id, 'schemas/semantic_v0.1.json')
+        if digest(schema_bytes) != study['semantic_schema_sha256']:
+            raise RuntimeError('Pinned semantic schema digest mismatch.')
+        for kind, rel in study['prompt_paths'].items():
+            if digest(store.load_protocol_file(study_id, rel)) != study['prompt_sha256'][kind]:
+                raise RuntimeError('Pinned prompt digest mismatch.')
+    else:
+        # Legacy studies predate protocol snapshots.
+        root = Path(__file__).resolve().parents[1]
+        schema_bytes = (root / 'schemas' / 'semantic_v0.1.json').read_bytes()
+        if digest(schema_bytes) != study['semantic_schema_sha256']:
+            raise RuntimeError('Semantic schema changed since study creation.')
+        add('schemas/semantic_v0.1.json', schema_bytes)
+        for kind in ('decompose', 'neutral', 'commercial'):
+            prompt_path = root / 'prompts' / f'{kind}_v0.1.txt'
+            prompt_bytes = prompt_path.read_bytes()
+            if digest(prompt_bytes) != study['prompt_sha256'][kind]:
+                raise RuntimeError(f'Prompt {kind} changed since study creation.')
+            add(f'prompts/{kind}_v0.1.txt', prompt_bytes)
 
     add('analysis/results.json', canonical(report) + b'\n')
     add('README.txt', (
@@ -114,7 +126,7 @@ def build_full_bundle(store: StuStore, capture, study_id: str, report: dict) -> 
         'The model runner never received the Oracle. This export combines '
         'evidence AFTER execution for human examination.\n'
         'SHA-256 manifests detect changed bytes, not semantic accuracy or '
-        'adversarial tampering. Synthetic results are NOT empirical LLM findings.\n'
+        'adversarial tampering. Synthetic fixtures are not model findings; live execution does not prove semantic correctness.\n'
     ).encode('utf-8'))
 
     manifest = {
