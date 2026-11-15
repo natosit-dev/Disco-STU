@@ -155,12 +155,17 @@ class ExperimentRunner:
         self._comparisons(rid)
         return record
 
-    def _comparisons(self, run_id: str) -> None:
+    def _comparisons(self, run_id: str, *, only_kinds: set[str] | None = None) -> list[str]:
+        """Create only missing, evidence-backed comparisons; never rewrite reviews.
+
+        An explicit application command calls this with only_kinds to reconcile
+        already-recorded runs without making another model request.
+        """
         run = self.store.get_run(run_id)
         existing = run['artifacts']
-        # An incomplete provider response is still evidence, not an accepted
-        # reconstruction; do not create an apparently valid comparison for it.
         accepted = set(existing)
+        # A partial/failed provider response remains archived evidence, but
+        # cannot be compared as if it were a completed reconstruction.
         for item in run['steps']:
             if item['step'] in ('neutral', 'commercial') and item['status'] != 'completed':
                 accepted.discard(item['step'] + '.response.txt')
@@ -173,11 +178,23 @@ class ExperimentRunner:
             ('neutral_vs_commercial', 'neutral.response.txt', 'commercial.response.txt'),
             ('oracle_vs_neutral', 'oracle', 'neutral.response.txt'),
             ('oracle_vs_commercial', 'oracle', 'commercial.response.txt'),
+            ('original_vs_neutral', 'source_packet.json', 'neutral.response.txt'),
+            ('original_vs_commercial', 'source_packet.json', 'commercial.response.txt'),
         ]
+        added = []
         for kind, reference, target in candidates:
-            if any(x not in accepted for x in (reference, target) if x != 'oracle'):
+            if only_kinds is not None and kind not in only_kinds:
+                continue
+            if any(name not in accepted for name in (reference, target) if name != 'oracle'):
                 continue
             cid = f'{run_id}-{kind}'
+            if self.store.comparison_path(cid).exists():
+                # Existing comparison IDs are immutable and may have review events.
+                continue
+            # Verify the bytes before creating a new comparison reference.
+            for name in (reference, target):
+                if name != 'oracle':
+                    self.store.load_artifact(run_id, name)
             self.store.save_comparison({
                 'comparison_id': cid, 'study_id': run['study_id'], 'run_id': run_id,
                 'kind': kind, 'reference': reference, 'target': target,
@@ -187,3 +204,5 @@ class ExperimentRunner:
                 'mode': run['mode'], 'synthetic': run['synthetic'],
                 'semantic_verdict': 'not_evaluated',
             })
+            added.append(cid)
+        return added
