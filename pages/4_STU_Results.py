@@ -1,4 +1,4 @@
-"""Results view. All analysis/export logic lives in StuApplication."""
+"""Human-first Results page; technical records remain available on demand."""
 from __future__ import annotations
 
 import os
@@ -6,103 +6,128 @@ import streamlit as st
 from stu.application import StuApplication
 
 st.set_page_config(page_title='STU · Results', layout='wide')
-st.title('Results and evidence coverage')
+st.title('Results')
+st.caption('Study completion and recorded human observations—not an automated meaning score.')
 app = StuApplication(os.environ.get('SERA_DATA_DIR', 'data'))
-studies = app.list_studies()
+studies = app.list_study_options(with_runs=True)
 if not studies:
-    st.info('No studies have been created.')
+    st.info('Run a study in Transform before viewing results.')
     st.stop()
-study_id = st.selectbox('Study', [x['study_id'] for x in studies])
+labels = {study['study_id']: study['label'] for study in studies}
+study_id = st.selectbox('Source / study', list(labels),
+                        format_func=lambda sid: labels[sid])
+report = app.get_results(study_id)
+if report['synthetic']:
+    st.warning('Synthetic fixture verification only; no empirical model results.')
+else:
+    st.info('Live hosted inference: successful execution does not prove meaning preservation.')
 
-with st.expander('Archived runs: add missing original-to-final comparisons'):
-    st.caption('Explicit, idempotent reconciliation. Adds evidence-backed comparison records '
-               'without rerunning models or changing existing reviews.')
+a, b, c = st.columns(3)
+a.metric('Model runs', report['recorded_run_count'])
+b.metric('Complete neutral/commercial pairs', len(report['paired_reconstructions']))
+c.metric('Primary reviews completed',
+         f"{report['completed_primary_reviews']} of {report['primary_comparison_count']}")
+st.caption('Primary reviews are the original writing compared with each final model output. '
+           'Other comparisons are optional diagnostic instruments.')
+
+st.subheader('Run history')
+for run in app.list_review_runs(study_id):
+    info = next((value for value in report['runs'] if value['run_id'] == run['run_id']),
+                None)
+    if info is None:
+        continue
+    st.markdown('**' + run['label'] + '**')
+    st.caption('Recorded status: ' + run['status'].replace('_', ' '))
+    primary = app.list_review_choices(study_id, run['run_id'])
+    if primary:
+        for comp in primary:
+            st.write('• ' + comp['label'])
+    else:
+        st.caption('No primary comparisons for this run. See Maintenance if it is an older study.')
+
+st.divider()
+st.subheader('Export')
+st.warning('The complete private ZIP includes source writing, frozen SERA intention, '
+           'provider requests/responses and review explanations. Do not publish it unreviewed.')
+col1, col2 = st.columns(2)
+with col1:
+    if st.button('Prepare complete private ZIP'):
+        try:
+            app.export_study(study_id)
+            st.session_state['stu_export'] = {'study_id': study_id, 'kind': 'full'}
+            st.rerun()
+        except (ValueError, RuntimeError, OSError, KeyError) as exc:
+            st.error(str(exc))
+with col2:
+    if st.button('Prepare redacted sharing summary'):
+        try:
+            app.export_study(study_id, privacy_level='safe')
+            st.session_state['stu_export'] = {'study_id': study_id, 'kind': 'safe'}
+            st.rerun()
+        except (ValueError, RuntimeError, OSError, KeyError) as exc:
+            st.error(str(exc))
+prepared = st.session_state.get('stu_export')
+if prepared and prepared['study_id'] == study_id:
+    kind = prepared['kind']
+    try:
+        st.download_button(
+            'Download ' + ('complete private ZIP' if kind == 'full' else 'redacted JSON'),
+            data=app.get_export_bytes(study_id, privacy_level=kind),
+            file_name=study_id + ('-full.zip' if kind == 'full' else '-safe.json'),
+            mime='application/zip' if kind == 'full' else 'application/json',
+        )
+    except (ValueError, RuntimeError, OSError, KeyError) as exc:
+        st.error(str(exc))
+
+with st.expander('Technical evidence and coverage'):
+    st.json({k: report[k] for k in ('run_status_counts', 'comparison_count',
+        'diagnostic_comparison_count', 'review_gap_labels',
+        'completed_explanation_active_seconds')})
+    for run in report['runs']:
+        with st.expander('Recorded stages · ' + run['run_id'][:8]):
+            st.dataframe(run['steps'], hide_index=True)
+    st.markdown('**Evidence validation**')
+    st.json(report['validation'])
+
+with st.expander('Optional reconstruction diagnostics'):
+    diagnostics = [comp for comp in app.list_comparisons(study_id)
+                   if comp['kind'] in ('decomposition_vs_neutral',
+                                      'decomposition_vs_commercial')]
+    if not diagnostics:
+        st.info('No completed decomposition diagnostics are available.')
+    else:
+        names = {comp['comparison_id']: comp['kind'].replace('_', ' ').title()
+                 + ' · ' + comp['run_id'][:8] for comp in diagnostics}
+        comparison_id = st.selectbox('Recorded comparison', list(names),
+                                      format_func=lambda cid: names[cid])
+        try:
+            detail = app.get_comparison(comparison_id)
+            if 'model_visible_projection_view' in detail:
+                left, right = st.columns(2)
+                with left:
+                    st.markdown('**Full decomposition (archived)**')
+                    st.json(detail['reference_view']['payload'])
+                with right:
+                    st.markdown('**Exact model-visible projection**')
+                    projected = detail['model_visible_projection_view']
+                    st.json(projected['payload'])
+                    st.caption('SHA-256: ' + projected['sha256'])
+                st.caption('The two reconstruction inputs share the same frozen bytes.')
+            else:
+                st.info('This synthetic run used its complete decomposition.')
+                st.json(detail['reference_view']['payload'])
+            st.markdown('**Reconstructed output**')
+            st.write(detail['target_view']['payload'])
+        except (ValueError, RuntimeError, OSError, KeyError) as exc:
+            st.error(str(exc))
+
+with st.expander('Maintenance · archived comparison records'):
+    st.caption('For older eight-comparison studies only. This action creates '
+               'missing original-to-final comparison records from saved output, '
+               'without rerunning inference or altering old review events.')
     if st.button('Add missing comparisons for this study'):
         try:
             outcome = app.reconcile_original_final_comparisons(study_id)
-            st.success(f"Added {outcome['created_count']} comparison(s). "
-                       "Existing comparison IDs and review events were not changed.")
+            st.success(f"Added {outcome['created_count']} comparison(s).")
         except (ValueError, RuntimeError, OSError, KeyError) as exc:
             st.error(str(exc))
-
-report = app.get_results(study_id)
-if report['synthetic']:
-    st.warning('Synthetic fixture verification only. Not empirical LLM findings.')
-else:
-    st.info('Live hosted inference evidence. Successful requests do not establish semantic correctness.')
-st.metric('Recorded runs', report['recorded_run_count'])
-st.metric('Valid paired outputs', len(report['paired_reconstructions']))
-st.metric('Primary human reviews completed',
-          f"{report['completed_primary_reviews']}/{report['primary_comparison_count']}")
-st.caption('Review prioritizes Oracle vs neutral and Oracle vs commercial; '
-           'other comparisons remain optional diagnostics.')
-st.subheader('Coverage')
-st.json({k: report[k] for k in ('run_status_counts','comparison_count','review_gap_labels',
-                                  'completed_explanation_active_seconds')})
-st.subheader('Optional reconstruction diagnostics')
-with st.expander('Full decomposition vs exact model-visible reconstruction projection'):
-    comparisons = [c for c in app.list_comparisons(study_id)
-                   if c['kind'] in ('decomposition_vs_neutral', 'decomposition_vs_commercial')]
-    if comparisons:
-        diagnostic_id = st.selectbox(
-            'Diagnostic comparison', [c['comparison_id'] for c in comparisons],
-            format_func=lambda cid: next(
-                (c['kind'] + ' · ' + c['run_id'][:8] for c in comparisons
-                 if c['comparison_id'] == cid), cid),
-        )
-        try:
-            diagnostic = app.get_comparison(diagnostic_id)
-            if 'model_visible_projection_view' in diagnostic:
-                left, right = st.columns(2)
-                with left:
-                    st.caption('Full decomposition (recorded evidence)')
-                    st.json(diagnostic['reference_view']['payload'])
-                with right:
-                    st.caption('EXACT reconstruction input (source_support removed)')
-                    projection = diagnostic['model_visible_projection_view']
-                    st.json(projection['payload'])
-                    st.caption('SHA-256: ' + projection['sha256'])
-                st.caption('The two reconstruction branches were verified against their '
-                           'recorded provider request bytes. Full decomposition remains unchanged.')
-            else:
-                st.info('Synthetic studies used the full decomposition; no live projection exists.')
-                st.json(diagnostic['reference_view']['payload'])
-            st.caption('Output from the selected comparison')
-            st.write(diagnostic['target_view']['payload'])
-        except (ValueError, RuntimeError, OSError, KeyError) as exc:
-            st.error(str(exc))
-    else:
-        st.info('No completed reconstruction diagnostics are available.')
-
-st.subheader('Run lineage and stage outcomes')
-for run in report['runs']:
-    with st.expander(run['run_id'] + ' · ' + run['status']):
-        st.dataframe(run['steps'], hide_index=True)
-st.subheader('Verification')
-st.json(report['validation'])
-st.subheader('Export study evidence')
-st.warning('The complete bundle includes original writing, private SERA intention, raw requests/responses and human explanations. Do not publish it unreviewed.')
-if st.button('Create complete private ZIP bundle'):
-    try:
-        info = app.export_study(study_id)
-        st.session_state['stu_export'] = {'study_id': study_id, 'kind': 'full'}
-        st.success('Complete bundle written to ' + info['path'])
-    except (ValueError, RuntimeError, OSError, KeyError) as exc:
-        st.error(str(exc))
-if st.button('Create redacted sharing summary (JSON)'):
-    try:
-        info = app.export_study(study_id, privacy_level='safe')
-        st.session_state['stu_export'] = {'study_id': study_id, 'kind': 'safe'}
-        st.success('Redacted summary written to ' + info['path'])
-    except (ValueError, RuntimeError, OSError, KeyError) as exc:
-        st.error(str(exc))
-choice = st.session_state.get('stu_export')
-if choice and choice['study_id'] == study_id:
-    kind = choice['kind']
-    extension = 'full.zip' if kind == 'full' else 'safe.json'
-    st.download_button(
-        label='Download ' + ('complete private bundle' if kind == 'full' else 'redacted JSON'),
-        data=app.get_export_bytes(study_id, privacy_level=kind),
-        file_name=study_id + '-' + extension,
-        mime='application/zip' if kind == 'full' else 'application/json',
-    )
