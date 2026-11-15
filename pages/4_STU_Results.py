@@ -35,7 +35,7 @@ x.metric('Reviews with written differences', report['free_text_findings_count'])
 y.metric('Explicit no-meaningful-gap reviews', report['explicit_no_gap_reviews'])
 z.metric('Reviews with incomplete labor measurement',
          report['reviews_with_incomplete_labor_measurement'])
-st.caption('Optional discrepancy labels are separate from the author's free-text finding. '
+st.caption("Optional discrepancy labels are separate from the author\'s free-text finding. "
            'Recorded active time does not necessarily equal total labor. '
            'A cumulative 15-minute threshold is independent of uncertain long intervals.')
 
