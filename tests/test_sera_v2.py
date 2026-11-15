@@ -143,7 +143,7 @@ def test_v1_rules_and_frozen_bytes_survive_v2_capture(tmp_path):
     amended = app.begin_amendment(sid)
     assert amended['schema_version'] == SCHEMA_VERSION
     assert amended['version'] == 2
-    assert app.list_frozen_sources()[0]['schema_version'] == SCHEMA_VERSION
+    assert next(x for x in app.list_frozen_sources() if x['sample_id'] == sid)['schema_version'] == SCHEMA_VERSION
 
 
 def test_v2_amendment_remains_v2_and_pinned_version_stays_historical(tmp_path):
