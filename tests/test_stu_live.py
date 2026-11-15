@@ -319,3 +319,35 @@ def test_live_diagnostic_rejects_changed_projection(tmp_path, monkeypatch):
                if c['kind'] == 'decomposition_vs_neutral')
     with pytest.raises(RuntimeError, match='Corrupted artifact'):
         app.get_comparison(cid)
+
+def test_existing_live_run_gains_original_final_comparisons_without_api_call(tmp_path, monkeypatch):
+    app, study, _ = capture_and_study(tmp_path, monkeypatch)
+    provider = MockProvider([
+        MockResponse(json.dumps(decomposition())),
+        MockResponse('Neutral reconstruction'),
+        MockResponse('Commercial advice'),
+    ])
+    use_mock(monkeypatch, provider)
+    run = app.run_sample(study['study_id'], api_key='test-key')
+    assert len(provider.calls) == 3
+    ids = []
+    for kind in ('original_vs_neutral', 'original_vs_commercial'):
+        cid = run['run_id'] + '-' + kind
+        app.store.comparison_path(cid).unlink()  # mimic the eight-comparison archive
+        ids.append(cid)
+    assert app.get_results(study['study_id'])['comparison_count'] == 8
+    before = len(provider.calls)
+    result = app.reconcile_original_final_comparisons(study['study_id'])
+    assert result['created_count'] == 2
+    assert set(result['comparison_ids']) == set(ids)
+    assert len(provider.calls) == before  # NO new hosted inference
+    assert app.reconcile_original_final_comparisons(study['study_id'])['created_count'] == 0
+    for cid in ids:
+        comp = app.get_comparison(cid)
+        assert comp['mode'] == 'live' and comp['synthetic'] is False
+        assert comp['reference_view']['payload']['original_text'] == SOURCE
+        assert comp['target_view']['payload']
+    assert app.validate(study['study_id'])['valid']
+    with ZipFile(app.export_study(study['study_id'])['path']) as archive:
+        names = archive.namelist()
+        assert all('comparisons/' + cid + '.json' in names for cid in ids)
