@@ -6,10 +6,11 @@ import streamlit as st
 from stu.application import StuApplication
 from stu.adaption_api import SUPPORTED_MODELS
 from ui.adaption_credentials import render_api_key_input
+from stu.presentation import model_name
 
 st.set_page_config(page_title='STU · Transform', layout='wide')
-st.title('STU — Semantic transformation')
-st.caption('Hosted Adaption inference is the primary experiment. Fixtures are retained under diagnostics.')
+st.title('Run a transformation')
+st.caption('Choose a frozen source and model. Technical evidence is recorded automatically.')
 app = StuApplication(os.environ.get('SERA_DATA_DIR', 'data'))
 
 with st.expander('Adaption API credential', expanded=True):
@@ -33,7 +34,8 @@ st.subheader('Create live experiment')
 with st.form('new_live_study'):
     sample_id = st.selectbox('Frozen SERA source', sample_options,
                              format_func=sample_label)
-    model_id = st.selectbox('Hosted model', SUPPORTED_MODELS)
+    model_id = st.selectbox('Hosted model', SUPPORTED_MODELS,
+                            format_func=model_name)
     create_live = st.form_submit_button('Create live study')
 if create_live:
     try:
@@ -59,36 +61,46 @@ with st.expander('Legacy regression fixtures — synthetic only', expanded=False
         except (ValueError, RuntimeError, OSError) as exc:
             st.error(str(exc))
 
-studies = app.list_studies()
+studies = app.list_study_options()
 if studies:
-    st.subheader('Run and inspect recorded studies')
-    options = [r['study_id'] for r in studies]
+    st.subheader('Recorded studies')
+    labels = {study['study_id']: study['label'] for study in studies}
+    options = list(labels)
     current = st.session_state.get('active_study')
-    selected = st.selectbox('Study', options,
-        index=options.index(current) if current in options else len(options)-1,
-        format_func=lambda sid: next((r['mode'] + ' · ' +
-             (r.get('model_id') or r.get('fixture_id') or 'fixture') + ' · ' + sid[:8]
-                                    for r in studies if r['study_id'] == sid), sid))
+    selected = st.selectbox('Source and study', options,
+        index=options.index(current) if current in options else 0,
+        format_func=lambda sid: labels[sid])
     study = app.get_study(selected)
     live = study['mode'] == 'live'
-    st.json({k: study.get(k) for k in
-             ('study_id', 'mode', 'model_id', 'fixture_id', 'adapter', 'runs')})
     if live:
-        st.warning('Live run makes up to THREE chargeable, independent hosted requests.')
-    run_label = 'Run live model experiment' if live else 'Run synthetic fixture'
+        st.caption('Hosted model: ' + model_name(study['model_id']))
+        st.warning('One live experiment makes up to three potentially chargeable '
+                   'independent API requests.')
+    else:
+        st.warning('Synthetic diagnostic study; outputs are not observations about an LLM.')
     disabled = live and not (key or os.environ.get('ADAPTION_API_KEY'))
-    if st.button(run_label, type='primary', disabled=disabled):
+    if st.button('Run model experiment' if live else 'Run synthetic regression',
+                 type='primary', disabled=disabled):
         try:
             run = app.run_sample(selected, api_key=key if live else None)
             st.session_state['active_study'] = selected
-            st.success('Recorded ' + run['run_id'] + ': ' + run['status'])
+            st.success('Recorded run: ' + run['status'].replace('_', ' '))
             st.rerun()
         except (ValueError, RuntimeError, OSError) as exc:
             st.error(str(exc))
     if disabled:
-        st.info('Enter an API key above or set ADAPTION_API_KEY to execute live inference.')
-    report = app.get_results(selected)
-    for record in report['runs']:
-        with st.expander(record['run_id'][:8] + ' · ' + record['status']):
-            st.dataframe(record['steps'], hide_index=True)
-    st.caption('Review and complete private ZIP exports are on the Review / Results pages.')
+        st.info('Enter an API key above or configure ADAPTION_API_KEY in your local environment.')
+
+    st.markdown('**Run history**')
+    runs = app.list_review_runs(selected)
+    if not runs:
+        st.caption('This study has no recorded runs yet.')
+    for run in runs:
+        st.write('• ' + run['label'] + ' — ' + run['status'].replace('_', ' '))
+    with st.expander('Technical evidence'):
+        st.json({k: study.get(k) for k in
+                 ('study_id', 'mode', 'model_id', 'fixture_id', 'adapter', 'runs')})
+        for record in app.get_results(selected)['runs']:
+            with st.expander('Stage details · ' + record['run_id'][:8]):
+                st.dataframe(record['steps'], hide_index=True)
+    st.caption('Inspect outputs and author judgments on Review; download evidence on Results.')
