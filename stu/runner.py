@@ -158,6 +158,12 @@ class ExperimentRunner:
     def _comparisons(self, run_id: str) -> None:
         run = self.store.get_run(run_id)
         existing = run['artifacts']
+        # An incomplete provider response is still evidence, not an accepted
+        # reconstruction; do not create an apparently valid comparison for it.
+        accepted = set(existing)
+        for item in run['steps']:
+            if item['step'] in ('neutral', 'commercial') and item['status'] != 'completed':
+                accepted.discard(item['step'] + '.response.txt')
         candidates = [
             ('oracle_vs_original', 'oracle', 'source_packet.json'),
             ('original_vs_decomposition', 'source_packet.json', 'decompose.parsed.json'),
@@ -169,7 +175,7 @@ class ExperimentRunner:
             ('oracle_vs_commercial', 'oracle', 'commercial.response.txt'),
         ]
         for kind, reference, target in candidates:
-            if any(x not in existing for x in (reference, target) if x != 'oracle'):
+            if any(x not in accepted for x in (reference, target) if x != 'oracle'):
                 continue
             cid = f'{run_id}-{kind}'
             self.store.save_comparison({
