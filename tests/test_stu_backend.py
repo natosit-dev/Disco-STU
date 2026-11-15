@@ -61,7 +61,7 @@ def test_runner_keeps_exact_parent_and_isolates_branches(tmp_path):
         assert 'private-oracle-secret' not in json.dumps(req)
         assert 'source_packet' not in json.dumps(body)
     comps = store.list_comparisons(study['study_id'])
-    assert len(comps) == 8
+    assert len(comps) == 10
     assert all(x['synthetic'] and x['semantic_verdict'] == 'not_evaluated' for x in comps)
 
 

@@ -169,7 +169,7 @@ def test_live_pipeline_preserves_evidence_projection_metadata_and_zip(tmp_path, 
     assert len(results['paired_reconstructions']) == 1
     assert results['paired_reconstructions'][0]['intermediate_sha256'] == digest(projected)
     comps = app.list_comparisons(study['study_id'])
-    assert len(comps) == 8
+    assert len(comps) == 10
     assert all(not c['synthetic'] and c['mode'] == 'live' for c in comps)
 
     # Complete private bundle must include exact pinned Oracle AND frozen protocol.
@@ -276,3 +276,46 @@ def test_live_model_allowlist_and_adapter_mismatch(tmp_path, monkeypatch):
     live = app.create_study(sid, mode='live', model_id='glm-5.2')
     with pytest.raises(ValueError, match='Live study requires'):
         app.run_sample(live['study_id'], adapter='fixture', api_key='test')
+
+def test_live_diagnostics_show_exact_model_visible_projection(tmp_path, monkeypatch):
+    app, study, _ = capture_and_study(tmp_path, monkeypatch)
+    provider = MockProvider([
+        MockResponse(json.dumps(decomposition())),
+        MockResponse('Neutral reconstruction'),
+        MockResponse('Commercial advice'),
+    ])
+    use_mock(monkeypatch, provider)
+    run = app.run_sample(study['study_id'], api_key='test-key')
+    assert run['status'] == 'completed'
+    for kind, condition in (('decomposition_vs_neutral', 'neutral'),
+                            ('decomposition_vs_commercial', 'commercial')):
+        cid = next(c['comparison_id'] for c in app.list_comparisons(study['study_id'])
+                   if c['kind'] == kind)
+        detail = app.get_comparison(cid)
+        assert detail['reference'] == 'decompose.parsed.json'
+        assert detail['reference_view']['payload'] == decomposition()
+        projection = detail['model_visible_projection_view']
+        assert projection['artifact_name'] == 'decompose.reconstruction_projection.json'
+        assert projection['verified_against_stage'] == condition
+        assert projection['payload']['projection_version'] == 'reconstruction.v0.1'
+        assert projection['sha256'] == digest(projection_bytes(decomposition()))
+        assert 'source_support' not in json.dumps(projection['payload'])
+        assert provider.calls[1 if condition == 'neutral' else 2]['input'].encode('utf-8') == projection_bytes(decomposition())
+    assert app.get_results(study['study_id'])['comparison_count'] == 10
+
+
+def test_live_diagnostic_rejects_changed_projection(tmp_path, monkeypatch):
+    app, study, _ = capture_and_study(tmp_path, monkeypatch)
+    use_mock(monkeypatch, MockProvider([
+        MockResponse(json.dumps(decomposition())),
+        MockResponse('Neutral reconstruction'),
+        MockResponse('Commercial advice'),
+    ]))
+    run = app.run_sample(study['study_id'], api_key='test-key')
+    path = (app.store.run_path(run['run_id']) / 'artifacts' /
+            'decompose.reconstruction_projection.json')
+    path.write_text('{"tampered":true}', encoding='utf-8')
+    cid = next(c['comparison_id'] for c in app.list_comparisons(study['study_id'])
+               if c['kind'] == 'decomposition_vs_neutral')
+    with pytest.raises(RuntimeError, match='Corrupted artifact'):
+        app.get_comparison(cid)

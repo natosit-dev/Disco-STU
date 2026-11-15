@@ -22,7 +22,7 @@ def test_synthetic_full_pipeline_including_actual_sera(tmp_path):
     results = report['results']
     assert results['research_verdict'] == 'NO EMPIRICAL MODEL RESULTS'
     assert len(results['paired_reconstructions']) == 1
-    assert results['comparison_count'] == 8
+    assert results['comparison_count'] == 10
     cmp_id = next(c['comparison_id'] for c in app.list_comparisons(report['study_id'])
                   if c['kind'] == 'oracle_vs_neutral')
     comp = app.get_comparison(cmp_id)
