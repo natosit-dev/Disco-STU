@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import streamlit as st
 from stu.application import StuApplication
-from stu.adaption_api import SUPPORTED_MODELS
+from stu.adaption_api import TEXT_ONLY_MODELS
 from ui.adaption_credentials import render_api_key_input
 from stu.presentation import model_name
 
@@ -31,10 +31,11 @@ def sample_label(sid):
 
 
 st.subheader('Create live experiment')
+st.caption('New studies show text-only hosted models. Existing Gemma and Qwen records remain available below.')
 with st.form('new_live_study'):
     sample_id = st.selectbox('Frozen SERA source', sample_options,
                              format_func=sample_label)
-    model_id = st.selectbox('Hosted model', SUPPORTED_MODELS,
+    model_id = st.selectbox('Hosted model', TEXT_ONLY_MODELS,
                             format_func=model_name)
     create_live = st.form_submit_button('Create live study')
 if create_live:

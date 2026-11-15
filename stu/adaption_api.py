@@ -8,7 +8,13 @@ from __future__ import annotations
 import os
 from typing import Any, Callable
 
-SUPPORTED_MODELS = ("gemma-4-31b-it", "qwen3.5-397b", "glm-5.2")
+# New study / connectivity selectors show Adaption's text-only hosted deployments.
+# These exact IDs come from https://docs.adaptionlabs.ai/inference-stacks/models
+TEXT_ONLY_MODELS = ("deepseek-v4-flash", "glm-53-flash", "glm-5.2")
+# Do not remove historical model IDs: stored Gemma and Qwen experiments need
+# to remain runnable/inspectable without mutating their pinned study contracts.
+LEGACY_MODELS = ("gemma-4-31b-it", "qwen3.5-397b")
+SUPPORTED_MODELS = TEXT_ONLY_MODELS + LEGACY_MODELS
 DIAGNOSTIC_PROMPT = "Reply with exactly: OK"
 SDK_TIMEOUT_SECONDS = 45.0
 

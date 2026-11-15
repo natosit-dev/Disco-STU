@@ -5,17 +5,19 @@ import os
 import streamlit as st
 
 from stu.adaption_api import (AdaptionApiError, AdaptionDiagnosticService,
-                              DIAGNOSTIC_PROMPT, SUPPORTED_MODELS)
+                              DIAGNOSTIC_PROMPT, TEXT_ONLY_MODELS)
 from ui.adaption_credentials import render_api_key_input
+from stu.presentation import model_name
 
 st.set_page_config(page_title='Adaption API Test · DiScO STU', layout='wide')
 st.title('Adaption API Test')
-st.caption('Send one minimal hosted inference request before enabling live STU experiments.')
+st.caption('One small connectivity check using a text-only hosted model; not the full study prompt.')
 
 with st.expander('API credential', expanded=True):
     key = render_api_key_input()
 
-model = st.selectbox('Hosted model', SUPPORTED_MODELS, index=0)
+model = st.selectbox('Hosted model', TEXT_ONLY_MODELS, index=0,
+                     format_func=model_name)
 st.code(DIAGNOSTIC_PROMPT, language=None)
 st.caption('One potentially billable request. No tools, memory, or conversation history; no data is saved.')
 if st.button('Send one API test request', type='primary', disabled=not (key or os.environ.get('ADAPTION_API_KEY'))):

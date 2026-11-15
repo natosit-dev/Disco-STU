@@ -23,7 +23,7 @@ python -m pytest -q
 python -m streamlit run app.py --server.port 8511
 ```
 
-Open **Transform** or **Adaption API Test** in the Streamlit sidebar. Paste the key into the masked field on either page; it is copied into a non-widget Streamlit session key to survive page navigation. Select `gemma-4-31b-it` and click **Send one API test request**. The page shows provider text, model, response ID, status and token usage (if any). The SDK uses `max_retries=0` and `timeout=45` to avoid hidden retries. The request is stateless (`store=False`, `agentic_memory=False`, `tools=[]`). `ADAPTION_API_KEY` in WSL is still an optional fallback.
+Open **Transform** or **Adaption API Test** in the Streamlit sidebar. Paste the key into the masked field on either page; it is copied into a non-widget Streamlit session key to survive page navigation. Select **DeepSeek V4 Flash** (`deepseek-v4-flash`) or another text-only model and click **Send one API test request**. This uses a hosted model directly, not the settings of a separately configured Adaption inference stack. The page shows provider text, model, response ID, status and token usage (if any). The SDK uses `max_retries=0` and `timeout=45` to avoid hidden retries. The request is stateless (`store=False`, `agentic_memory=False`, `tools=[]`). `ADAPTION_API_KEY` in WSL is still an optional fallback.
 
 **Do not enter the key into the ChatGPT chat, a GitHub issue or a code file.** Use Streamlit locally on a trusted machine; this application has no multi-user authentication or secure credential vault. Never expose the Streamlit port publicly.
 

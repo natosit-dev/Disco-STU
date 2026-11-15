@@ -9,7 +9,7 @@ from pathlib import Path
 from .application import StuApplication
 from .contracts import CATEGORIES
 from .fixtures import FIXTURES
-from .adaption_api import SUPPORTED_MODELS
+from .adaption_api import SUPPORTED_MODELS, TEXT_ONLY_MODELS, LEGACY_MODELS
 
 
 def smoke(app: StuApplication, fixture_id='F01') -> dict:
@@ -54,6 +54,8 @@ def main(argv=None) -> int:
     try:
         if args.command == 'doctor':
             result = {'adapters': ['deterministic_fixture', 'adaption'],
+                      'new_study_text_models': list(TEXT_ONLY_MODELS),
+                      'historical_supported_models': list(LEGACY_MODELS),
                       'hosted_models': list(SUPPORTED_MODELS),
                       'adaption_key_configured': bool(os.environ.get('ADAPTION_API_KEY')),
                       'data_root': str(Path(args.data_root)),

@@ -21,7 +21,9 @@ python -m streamlit run app.py --server.port 8511
 
 In SERA, finish and **freeze** one private author explication. On Transform, paste the Adaption key in the masked session field (or set `ADAPTION_API_KEY` locally), choose the frozen SERA source and available model, create a **live** study and click **Run live model experiment**. A complete experiment attempts three independently billed calls. The key is passed to the backend as a transient value; it is not stored in manifests, requests, exports or events.
 
-Adaption model selection initially allows `gemma-4-31b-it`, `qwen3.5-397b` and `glm-5.2`. Actual authorization and model availability depend on the account. Do not expose the locally hosted Streamlit port publicly.
+As of November 15, 2026, the new-study and one-call diagnostic selectors display only Adaption-hosted **text-input-only** models: `deepseek-v4-flash` (DeepSeek V4 Flash), `glm-53-flash` (GLM 5.3 Flash), and `glm-5.2`. Model IDs and modalities are verified against [Adaption's official model list](https://docs.adaptionlabs.ai/inference-stacks/models). Old `gemma-4-31b-it` and `qwen3.5-397b` studies retain their pinned model IDs, history and run capability; they are simply absent from new-study selectors. Account authorization may vary. Keep the app bound to trusted localhost.
+
+**Controlled execution:** These selectors call the **hosted model ID directly**, not `stack:<slug>`. A configured Adaption inference stack can apply its own memory, tools, or defaults; that would change experimental conditions and is not silently substituted for the hosted model. The user's configured DeepSeek stack is left untouched.
 
 ## What the runner sends
 

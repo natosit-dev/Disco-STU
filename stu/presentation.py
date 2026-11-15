@@ -13,6 +13,8 @@ MODEL_NAMES = {
     "gemma-4-31b-it": "Gemma 4 31B",
     "qwen3.5-397b": "Qwen 3.5 397B",
     "glm-5.2": "GLM 5.2",
+    "deepseek-v4-flash": "DeepSeek V4 Flash",
+    "glm-53-flash": "GLM 5.3 Flash",
     "fixture": "Synthetic fixture",
 }
 COMPARISON_NAMES = {
