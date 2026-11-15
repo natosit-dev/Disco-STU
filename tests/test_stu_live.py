@@ -136,7 +136,8 @@ def test_live_pipeline_preserves_evidence_projection_metadata_and_zip(tmp_path, 
     for call in provider.calls:
         assert call['model'] == 'gemma-4-31b-it'
         assert call['store'] is False and call['agentic_memory'] is False
-        assert call['tools'] == [] and call['tool_choice'] == 'none'
+        assert call['tools'] == []
+        assert 'tool_choice' not in call
         assert 'previous_response_id' not in call
         assert PRIVATE_INTENT not in json.dumps(call)
         assert 'SENSITIVE_KEY_FOR_TEST_ONLY' not in json.dumps(call)

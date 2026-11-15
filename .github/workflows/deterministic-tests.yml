@@ -1,4 +1,4 @@
-name: DiScO STU deterministic verification
+name: DiScO STU deterministic and mocked live verification
 on:
   push:
     branches:

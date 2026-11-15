@@ -58,7 +58,6 @@ class AdaptionModelAdapter:
             'store': False,
             'agentic_memory': False,
             'tools': [],
-            'tool_choice': 'none',
         }
 
     def generate(self, request: GenerationRequest) -> GenerationResult:
