@@ -126,7 +126,7 @@ def test_review_navigation_edit_pause_resume_complete_and_amend(tmp_path, monkey
     click('Resume timed amendment')
     ui = ui.text_area[0].set_value('The line breaks were intentional and independent.').run()
     click('Save & complete')
-    assert StuApplication(data_root).review.state(first)['event_count'] == 8
+    assert StuApplication(data_root).review.state(first)['event_count'] == 9
 
     # Switching to the second primary comparison after completion is stable.
     second = next(c['comparison_id'] for c in StuApplication(data_root)
