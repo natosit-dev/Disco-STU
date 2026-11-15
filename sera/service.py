@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from .schema import CATEGORIES, IMPORTANCE, POLARITY, RELATION_TYPES, UNIT_KINDS, utc_now
+from .schema import (CATEGORIES, IMPORTANCE, POLARITY, RELATION_TYPES, UNIT_KINDS,
+                     SCHEMA_V2, CHARACTERISTICS, utc_now)
 
 
 def _draft(record: dict) -> None:
@@ -91,7 +92,10 @@ def _rows(rows: list[dict], kind: str) -> list[dict]:
 
 def save_units(record: dict, rows: list[dict]) -> dict:
     _draft(record)
-    if not record.get("categories_saved_at"):
+    if record.get("schema_version") == SCHEMA_V2:
+        if not record.get("intention_saved_at"):
+            raise ValueError("Save your unrestricted explanation before optional annotations.")
+    elif not record.get("categories_saved_at"):
         raise ValueError("Save category-level prose before creating units.")
     record["units"] = _rows(rows, "unit")
     record["updated_at"] = utc_now()
@@ -100,7 +104,10 @@ def save_units(record: dict, rows: list[dict]) -> dict:
 
 def save_relations(record: dict, rows: list[dict]) -> dict:
     _draft(record)
-    if not record.get("categories_saved_at"):
+    if record.get("schema_version") == SCHEMA_V2:
+        if not record.get("intention_saved_at"):
+            raise ValueError("Save your unrestricted explanation before optional annotations.")
+    elif not record.get("categories_saved_at"):
         raise ValueError("Save category-level prose before creating relationships.")
     record["relations"] = _rows(rows, "relation")
     record["updated_at"] = utc_now()
