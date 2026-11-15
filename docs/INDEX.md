@@ -15,8 +15,15 @@ Use this page to find the **authoritative document for a question**. Historical 
 | What has actually been built and tested? | [Deterministic Build — factual handoff](handoff/Disco_STU_Deterministic_Build_Full_Handoff_Radiant_Control_2026-11-14.md) | **As-built evidence report**, sourced to implementation commit `98f5036` and draft PR #1; reports 25 automated tests passing, deterministic fixtures only |
 | What is The Nerd supposed to implement? | [The Nerd complete-pipeline handoff](handoff/NERD_HANDOFF_STU_COMPLETE_PIPELINE_v0.1_2026-11-14.md) | Original requirements/handoff; later implementation choices and current status must be checked against the factual build report |
 | What did The Nerd get approval to build? | [Full deterministic build plan](stu/DISCO_STU_FULL_BUILD_PLAN_v0.1_2026-11-14.md) | **Implementation design baseline**; its pre-authorization wording records the state when written, not current authorization |
+| What changed after the human caught the review-workload drift? | [**Wait, What??! — human intervention**](interventions/Wait_What_Intervention_DiScO_STU_2026-11-14.md) | **Current corrective design record**; distinguishes the 2 final-output reviews from 8 diagnostic comparisons, the 15-minute Boolean from idle-time uncertainty, and proposed changes from implemented code. Includes 21 raw prompts and decisions WWH-01–WWH-09. **Not a scored result** |
 | What are SERA's original requirements? | [SERA build plan](sera/BUILD_PLAN_v0.1.md) | Adopted progressive-explication design contract |
 | What does SERA save and expose? | [SERA data contract](sera/DATA_CONTRACT.md) and [shared semantic JSON Schema](../schemas/semantic_v0.1.json) | Implemented SERA structure / Oracle isolation and serialization rules |
+
+## Human intervention and change lineage
+
+[**Wait, What??!**](interventions/Wait_What_Intervention_DiScO_STU_2026-11-14.md) documents the author's correction of an AI-generated workflow interpretation: a deterministic rig may materialize eight comparison *types* without requiring eight manual reviews. The human baseline remains **one SERA explication per source** and **two final-output gap explanations per model**. It also records that **reaching fifteen minutes** is a candidate labor-budget Boolean and must be tracked separately from a suspect/idle review interval.
+
+**Status:** documented intervention and proposed corrections, not implementation evidence or an empirical finding. See WWH-01–WWH-09; preserve earlier STU decision history.
 
 ## Runtime and technical evidence
 
