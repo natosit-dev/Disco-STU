@@ -35,6 +35,6 @@ Open **Transform** or **Adaption API Test** in the Streamlit sidebar. Paste the 
 - No changes to `stu/review.py` or `pages/3_STU_Review.py`; no modifications to existing comparison identifiers.
 - Tests use injected fake SDK clients, not real API keys or paid inference. A genuine request requires clicking the button from the local UI.
 
-## Next step (separate feature)
+## Connected live experiment
 
-Wire the official SDK into the full live Experiment 01 orchestration, preserving full model decomposition, a common versioned reconstruction projection, isolated paired branches, live evidence records and private ZIP exports. This diagnostic is not that implementation.
+The full live Experiment 01 runner is now implemented on the feature branch; the API Test page remains a separate, non-persistent connectivity check. For the live three-stage workflow, see [Live inference v0.1](stu/LIVE_INFERENCE_v0.1.md).

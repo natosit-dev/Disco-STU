@@ -12,24 +12,29 @@ If these trends continue... EHHHH
 
 **SERA** (Semantic Explication Recorded Analytics) is the proposed human explication/warmup interface: source paragraphs and the author's independently frozen intended-meaning references are produced before model testing.
 
-**Current state:** SERA v0.1 local capture/freeze/export application implemented, with automated domain tests. STU model execution and timed human gap review are not implemented yet.
+**Current feature branch:** SERA capture/freeze, live Adaption semantic transformation (three independent requests per model/source), archived synthetic regression fixtures, human Review, and complete private evidence ZIPs are implemented. Live execution requires an Adaption API key and a frozen local SERA source; semantic correctness is not automatically evaluated.
 
-## Run SERA locally
+## Run DiScO STU locally (WSL Ubuntu + Conda)
 
 SERA uses **progressive explication**: source paragraph → unrestricted human intention → category-level prose → semantic units/relations → immutable frozen Oracle and source-only STU export.
 
 ```bash
-git clone https://github.com/natosit-dev/Disco-STU.git
-cd Disco-STU
-python -m venv .venv
-source .venv/bin/activate     # Windows PowerShell: .venv\\Scripts\\Activate.ps1
-python -m pip install -r requirements.txt
-streamlit run app.py
+wsl -d Ubuntu                         # Windows Terminal only
+conda activate disco
+cd ~/code/Disco-STU
+git status
+git branch --show-current
+git fetch origin
+git pull --ff-only                     # only if clean and on the intended branch
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+python -m stu.cli doctor
+python -m streamlit run app.py --server.port 8511
 ```
 
 Use the **SERA** page in the sidebar. Records live in `./data/` (gitignored). To use another directory, set `SERA_DATA_DIR`. The app is **local and single-user**; it does not encrypt data at rest. The model-visible export contains only the original paragraph, its hash and a sample ID—not the Oracle reference.
 
-Run backend tests with `python -m pip install -r requirements-dev.txt && pytest -q`. The first UI walkthrough should be performed locally with Streamlit installed.
+Open SERA to freeze the private human Oracle, then Transform to select a hosted model. The masked API key is held in Streamlit session memory, not committed to Git. View full live experiment details in [Live inference notes](docs/stu/LIVE_INFERENCE_v0.1.md). Existing synthetic fixtures remain available under a collapsed diagnostics section.
 
 [Implementation plan](docs/sera/BUILD_PLAN_v0.1.md) · [Data contract](docs/sera/DATA_CONTRACT.md) · [Shared semantic schema](schemas/semantic_v0.1.json)
 

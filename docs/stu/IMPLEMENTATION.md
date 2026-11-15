@@ -1,3 +1,5 @@
+> **Historical baseline (synthetic v0.1).** Live Adaption integration supersedes the synthetic-only claims on this page; see [Live inference v0.1](LIVE_INFERENCE_v0.1.md). Do not mistake these archived instructions for current feature-branch status.
+
 # STU deterministic implementation notes
 
 The first build is an **offline research instrument skeleton with real event and artifact persistence**. Synthetic cases exercise the complete flow but do not support empirical claims about any LLM.
