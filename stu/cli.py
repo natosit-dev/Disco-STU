@@ -9,6 +9,7 @@ from pathlib import Path
 from .application import StuApplication
 from .contracts import CATEGORIES
 from .fixtures import FIXTURES
+from .adaption_api import SUPPORTED_MODELS
 
 
 def smoke(app: StuApplication, fixture_id='F01') -> dict:
@@ -41,8 +42,8 @@ def main(argv=None) -> int:
     s.add_argument('--fixture', choices=sorted(FIXTURES), default='F01')
     r = commands.add_parser('run')
     r.add_argument('--study', required=True)
-    r.add_argument('--adapter', choices=['fixture'], default='fixture')
-    r.add_argument('--mode', choices=['synthetic_test'], default='synthetic_test')
+    r.add_argument('--adapter', choices=['fixture', 'adaption'], default=None)
+    r.add_argument('--mode', choices=['synthetic_test', 'live'], default=None)
     for command in ('validate', 'analyze', 'export'):
         sub = commands.add_parser(command)
         sub.add_argument('--study', required=True)
@@ -52,10 +53,12 @@ def main(argv=None) -> int:
     app = StuApplication(args.data_root)
     try:
         if args.command == 'doctor':
-            result = {'adapter': 'deterministic_fixture', 'available': True,
-                      'real_model_adapters': 'NOT IMPLEMENTED',
+            result = {'adapters': ['deterministic_fixture', 'adaption'],
+                      'hosted_models': list(SUPPORTED_MODELS),
+                      'adaption_key_configured': bool(os.environ.get('ADAPTION_API_KEY')),
                       'data_root': str(Path(args.data_root)),
-                      'mode': 'synthetic_test only'}
+                      'modes': ['live', 'synthetic_test'],
+                      'note': 'Live inference requires a frozen SERA source and API key.'}
         elif args.command == 'smoke':
             result = smoke(app, args.fixture)
         elif args.command == 'run':
