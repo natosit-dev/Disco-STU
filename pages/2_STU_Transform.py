@@ -17,7 +17,7 @@ with st.expander('Adaption API credential', expanded=True):
     key = render_api_key_input()
     st.caption('Key stays in this local Streamlit session; never saved to experiment artifacts.')
 
-samples = [r for r in app.capture.list_samples() if r['status'] == 'frozen']
+samples = app.capture.list_frozen_sources()
 if not samples:
     st.info('Create and freeze a SERA source before running a model.')
     st.stop()

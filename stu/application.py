@@ -6,6 +6,7 @@ from collections import Counter
 from pathlib import Path
 
 from sera.application import SeraApplication
+from sera.schema import SCHEMA_V2
 from .bundle import build_full_bundle
 from .adaption_api import SUPPORTED_MODELS
 from .live import AdaptionModelAdapter
@@ -131,6 +132,11 @@ class StuApplication:
                 and packet['original_text'] != FIXTURES[fixture_id]['source']):
             raise ValueError('Synthetic fixture selected for an unrelated source. Use STRUCTURAL instead.')
         artifacts, paths, hashes = frozen_protocol(mode)
+        if oracle.get('schema_version') == SCHEMA_V2:
+            # Pin the authorial capture contract alongside the model protocol;
+            # the private ZIP remains independently interpretable in the future.
+            v2_schema = Path(__file__).resolve().parents[1] / 'schemas' / 'sera_capture_v0.2.json'
+            artifacts['schemas/sera_capture_v0.2.json'] = v2_schema.read_bytes()
         return self.store.create_study(
             sample_id=sample_id, source_sha256=packet['source_sha256'],
             fixture_id=fixture_id,
