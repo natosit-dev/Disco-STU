@@ -15,7 +15,7 @@ def test_ten_comparisons_primary_first_and_source_final_correct(tmp_path):
     comparisons = app.list_comparisons(result['study_id'])
     assert len(comparisons) == 10
     assert [c['kind'] for c in comparisons[:2]] == [
-        'oracle_vs_neutral', 'oracle_vs_commercial']
+        'original_vs_neutral', 'original_vs_commercial']
     assert all(c['review_role'] == 'primary' for c in comparisons[:2])
     assert all(c['review_role'] == 'diagnostic' for c in comparisons[2:])
     assert all(c['semantic_verdict'] == 'not_evaluated' for c in comparisons)
