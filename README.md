@@ -4,6 +4,8 @@ If these trends continue... EHHHH
 
 ...your fish is dead
 
+**[Documentation index](docs/INDEX.md)** — current research plan, factual build record, implementation contracts, and historical archive.
+
 ## What this is
 
 **DiScO** = **Deterministic Inspection of Semantic Coupling in Outputs**.
