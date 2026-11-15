@@ -4,11 +4,17 @@ from __future__ import annotations
 import os
 import streamlit as st
 from stu.application import StuApplication
+from ui.adaption_credentials import render_api_key_input
 
 st.set_page_config(page_title='STU · Transform', layout='wide')
 st.title('STU — Deterministic synthetic transformation')
-st.warning('SYNTHETIC SOFTWARE TEST — No real LLM inference or empirical research findings.')
+st.warning('Experiment execution is currently SYNTHETIC; use the Adaption API Test page for a real hosted connectivity check.')
 app = StuApplication(os.environ.get('SERA_DATA_DIR', 'data'))
+
+with st.expander('Adaption API configuration', expanded=True):
+    render_api_key_input()
+    st.caption('This credential is for the separate API Test page. Live experiment execution is not connected yet.')
+
 samples = [r for r in app.capture.list_samples() if r['status'] == 'frozen']
 if not samples:
     st.info('Create and freeze a SERA sample first.')
