@@ -14,7 +14,7 @@ from .contracts import canonical, digest, now
 from .fixtures import FIXTURES, get_fixture
 from .review import HumanReview
 from .runner import ExperimentRunner, prompt_hashes
-from .storage import StuStore, atomic_json
+from .storage import StuStore, atomic_json, EventJournal
 
 
 PRIMARY_REVIEW_KINDS = ('oracle_vs_neutral', 'oracle_vs_commercial')
@@ -102,6 +102,14 @@ class StuApplication:
             self.store.verify_run(run_id)
             created.extend(ExperimentRunner(self.store)._comparisons(
                 run_id, only_kinds=ORIGINAL_FINAL_KINDS))
+        if created:
+            # The intervention itself is an append-only research event.
+            # Existing run artifacts, comparisons and human reviews stay intact.
+            EventJournal(self.store.study_path(study_id) / 'events.jsonl').append(
+                'comparisons_reconciled', {
+                    'reason': 'original_to_final_backfill_v0.1',
+                    'comparison_ids': created,
+                })
         return {'study_id': study_id, 'created_count': len(created),
                 'comparison_ids': created,
                 'note': 'Existing comparisons and human review events were not changed.'}
