@@ -8,7 +8,7 @@ import json
 import os
 import re
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from uuid import uuid4
 
 from .contracts import canonical, digest, now
@@ -110,22 +110,43 @@ class StuStore:
 
     def create_study(self, *, sample_id: str, source_sha256: str, fixture_id: str,
                      oracle_ref: dict, prompts: dict, schema_sha256: str,
-                     implementation: str) -> dict:
+                     implementation: str, mode: str = 'synthetic_test',
+                     model_id: str | None = None,
+                     protocol_artifacts: dict[str, bytes] | None = None,
+                     prompt_paths: dict[str, str] | None = None) -> dict:
+        if mode not in ('synthetic_test', 'live'):
+            raise ValueError('Unsupported study mode.')
+        if mode == 'live' and not model_id:
+            raise ValueError('A pinned model ID is required for live studies.')
         study_id = str(uuid4())
         path = self.study_path(study_id)
         path.mkdir(parents=True, exist_ok=False)
-        study = {'study_id': study_id, 'mode': 'synthetic_test', 'status': 'draft',
+        protocol_hashes = {}
+        for rel, raw in (protocol_artifacts or {}).items():
+            path_parts = PurePosixPath(rel).parts
+            if not path_parts or any(part in ('', '.', '..') for part in path_parts) or rel.startswith('/'):
+                raise ValueError('Unsafe protocol artifact path.')
+            protocol_path = path / 'protocol' / rel
+            write_once(protocol_path, raw)
+            protocol_hashes[rel] = digest(raw)
+        study = {'study_id': study_id, 'mode': mode, 'status': 'draft',
                  'schema_version': 'stu.v0.1', 'sample_id': sample_id,
-                 'source_sha256': source_sha256, 'fixture_id': fixture_id,
-                 'adapter': 'deterministic_fixture', 'created_at': now(),
-                 'prompt_sha256': prompts, 'semantic_schema_sha256': schema_sha256,
+                 'source_sha256': source_sha256,
+                 'fixture_id': fixture_id if mode == 'synthetic_test' else None,
+                 'model_id': model_id if mode == 'live' else None,
+                 'adapter': 'adaption' if mode == 'live' else 'deterministic_fixture',
+                 'created_at': now(), 'prompt_sha256': prompts,
+                 'semantic_schema_sha256': schema_sha256,
+                 'prompt_paths': prompt_paths or {},
+                 'protocol_files': protocol_hashes,
                  'implementation': implementation, 'runs': [],
-                 'privacy_class': 'synthetic_test', 'scored': False}
+                 'privacy_class': 'private_live' if mode == 'live' else 'synthetic_test',
+                 'synthetic': mode == 'synthetic_test', 'scored': False}
         atomic_json(path / 'manifest.json', study)
         # Private reviewer-only reference is never loaded by runner or serialized in a model request.
         secret_path = self.root / 'private' / 'studies' / (study_id + '.json')
         write_once(secret_path, canonical(oracle_ref))
-        EventJournal(path / 'events.jsonl').append('study_created', {'mode': 'synthetic_test'})
+        EventJournal(path / 'events.jsonl').append('study_created', {'mode': mode})
         return study
 
     def get_study(self, study_id: str) -> dict:
@@ -133,6 +154,18 @@ class StuStore:
 
     def private_oracle_reference(self, study_id: str) -> dict:
         return read_json(self.root / 'private' / 'studies' / (safe_id(study_id) + '.json'))
+
+    def load_protocol_file(self, study_id: str, name: str) -> bytes:
+        study = self.get_study(study_id)
+        if name not in study.get('protocol_files', {}):
+            raise ValueError('Protocol artifact is not pinned to this study.')
+        parts = PurePosixPath(name).parts
+        if not parts or '..' in parts or name.startswith('/'):
+            raise ValueError('Unsafe protocol artifact name.')
+        raw = (self.study_path(study_id) / 'protocol' / name).read_bytes()
+        if digest(raw) != study['protocol_files'][name]:
+            raise RuntimeError('Frozen protocol artifact integrity mismatch: ' + name)
+        return raw
 
     def list_studies(self) -> list[dict]:
         base = self.root / 'studies'
@@ -143,16 +176,18 @@ class StuStore:
 
     def create_run(self, study_id: str, model_profile: str = 'fixture') -> dict:
         study = self.get_study(study_id)
-        if study.get('mode') != 'synthetic_test' or study.get('scored'):
-            raise ValueError('Fake adapter may only execute synthetic_test studies.')
+        if study.get('mode') not in ('synthetic_test', 'live') or study.get('scored'):
+            raise ValueError('Study mode is not executable.')
+        if study['mode'] == 'live' and model_profile != study['model_id']:
+            raise ValueError('Live run model does not match pinned study model.')
         run_id = str(uuid4())
         path = self.run_path(run_id)
         path.mkdir(parents=True, exist_ok=False)
-        record = {'run_id': run_id, 'study_id': study_id, 'mode': 'synthetic_test',
-                  'adapter': 'deterministic_fixture', 'model_profile': model_profile,
+        record = {'run_id': run_id, 'study_id': study_id, 'mode': study['mode'],
+                  'adapter': study['adapter'], 'model_profile': model_profile,
                   'fixture_id': study['fixture_id'], 'sample_id': study['sample_id'],
                   'started_at': now(), 'status': 'running', 'steps': [],
-                  'artifacts': {}, 'synthetic': True}
+                  'artifacts': {}, 'synthetic': study['mode'] == 'synthetic_test'}
         atomic_json(path / 'run.json', record)
         EventJournal(path / 'events.jsonl').append('run_started', {'study_id': study_id})
         study['runs'].append(run_id)
