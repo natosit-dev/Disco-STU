@@ -49,6 +49,8 @@ def test_reconcile_archived_eight_idempotently_and_preserve_reviews(tmp_path):
     review_path = app.store.review_path(first) / 'events.jsonl'
     original_review = review_path.read_bytes()
     study_path = app.store.study_path(study_id) / 'manifest.json'
+    event_path = app.store.study_path(study_id) / 'events.jsonl'
+    original_events = event_path.read_bytes()
     run_path = app.store.run_path(run_id) / 'run.json'
     study_before, run_before = study_path.read_bytes(), run_path.read_bytes()
 
@@ -67,6 +69,12 @@ def test_reconcile_archived_eight_idempotently_and_preserve_reviews(tmp_path):
     assert set(outcome['comparison_ids']) == {
         run_id + '-original_vs_neutral', run_id + '-original_vs_commercial'}
     assert app.reconcile_original_final_comparisons(study_id)['created_count'] == 0
+    from stu.storage import EventJournal
+    events = EventJournal(event_path).read()
+    assert event_path.read_bytes().startswith(original_events)
+    assert len(events) == 2
+    assert events[-1]['kind'] == 'comparisons_reconciled'
+    assert set(events[-1]['details']['comparison_ids']) == set(outcome['comparison_ids'])
     assert len(app.list_comparisons(study_id)) == 10
     assert app.get_results(study_id)['completed_primary_reviews'] == 1
     assert review_path.read_bytes() == original_review
