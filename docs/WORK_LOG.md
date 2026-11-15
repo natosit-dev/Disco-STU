@@ -48,3 +48,10 @@
 - **Ownership:** `stu/review.py` and `pages/3_STU_Review.py` are unchanged; priorities use `StuApplication.list_comparisons` and diagnostics use the separate Results view.
 - **Verification:** GitHub Actions reported 58 passing tests on commit `1c8cefd4199bf88adbc9a61c1da67dc8a387223b` (mocked live backfill without provider calls, source-to-final references, historical review persistence, exact projection views). After populated-Results AppTest and documentation updates, commit `aff3ea2cb915673a0f98f4502c17702d36fecfb6` passed **59 tests** and the synthetic CLI smoke suite; both CI checks succeeded (GitHub Actions job `132920339611`).
 - **No semantic correctness claim:** These are instrumentation and archive-completeness changes; human interpretation remains outside automated validation.
+
+## 2026-11-15 — Pre-UI-cleanup checkpoint (no code changed)
+
+- Recorded baseline `09eeb47920c285a57bb38168c424c2c0ca7996bf` after the ten-comparison/live-inference milestone; **59 tests** previously passed.
+- New request grounded in human workflow: **Write → Explain → Run → Review**. Approved a two-stage effort: (A) human-readable UI/Review/Results, then (B) SERA v0.2 capture contract with optional structured annotations and strict v1 preservation.
+- Full scope and compatibility/ownership constraints are frozen in `docs/checkpoints/DISCO_STU_HUMAN_WORKFLOW_BEFORE_V02_2026-11-15.md`.
+- Radiant Review timer/domain code should not be changed by UI cleanup; carry 15-minute budget-vs-uncertainty issue as explicit follow-up, not as an unverified fix.
