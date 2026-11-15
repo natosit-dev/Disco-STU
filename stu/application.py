@@ -7,6 +7,9 @@ from pathlib import Path
 
 from sera.application import SeraApplication
 from .bundle import build_full_bundle
+from .adaption_api import SUPPORTED_MODELS
+from .live import AdaptionModelAdapter
+from .protocol import frozen_protocol, SCHEMA_PATH
 from .contracts import canonical, digest, now
 from .fixtures import FIXTURES, get_fixture
 from .review import HumanReview
@@ -23,25 +26,49 @@ class StuApplication:
     def list_studies(self) -> list[dict]:
         return self.store.list_studies()
 
-    def create_study(self, sample_id: str, *, fixture_id: str = 'STRUCTURAL') -> dict:
-        get_fixture(fixture_id)
+    def create_study(self, sample_id: str, *, fixture_id: str = 'STRUCTURAL',
+                     mode: str = 'synthetic_test',
+                     model_id: str | None = None) -> dict:
+        if mode not in ('synthetic_test', 'live'):
+            raise ValueError('Study mode must be live or synthetic_test.')
+        if mode == 'live':
+            if model_id not in SUPPORTED_MODELS:
+                raise ValueError('Unsupported Adaption model selection.')
+        else:
+            get_fixture(fixture_id)
         oracle = self.capture.private_oracle(sample_id)
         packet = self.capture.model_packet(sample_id)
-        if fixture_id != 'STRUCTURAL' and packet['original_text'] != FIXTURES[fixture_id]['source']:
+        if (mode == 'synthetic_test' and fixture_id != 'STRUCTURAL'
+                and packet['original_text'] != FIXTURES[fixture_id]['source']):
             raise ValueError('Synthetic fixture selected for an unrelated source. Use STRUCTURAL instead.')
-        semantic_schema = (Path(__file__).resolve().parents[1] / 'schemas' / 'semantic_v0.1.json')
-        return self.store.create_study(sample_id=sample_id,
-            source_sha256=packet['source_sha256'], fixture_id=fixture_id,
+        artifacts, paths, hashes = frozen_protocol(mode)
+        return self.store.create_study(
+            sample_id=sample_id, source_sha256=packet['source_sha256'],
+            fixture_id=fixture_id,
             oracle_ref={'sample_id': sample_id, 'version': oracle['version'],
                         'explication_id': oracle['explication_id'],
                         'artifact_sha256': oracle['artifact_sha256']},
-            prompts=prompt_hashes(), schema_sha256=digest(semantic_schema.read_bytes()),
-            implementation='disco-stu-deterministic-v0.1')
+            prompts=hashes, schema_sha256=digest(artifacts[SCHEMA_PATH]),
+            implementation='disco-stu-live-v0.1' if mode == 'live'
+                           else 'disco-stu-deterministic-v0.1',
+            mode=mode, model_id=model_id if mode == 'live' else None,
+            protocol_artifacts=artifacts, prompt_paths=paths)
 
-    def run_sample(self, study_id: str, *, adapter: str = 'fixture',
-                   mode: str = 'synthetic_test') -> dict:
-        if adapter != 'fixture' or mode != 'synthetic_test':
-            raise ValueError('Only deterministic synthetic execution is implemented.')
+    def run_sample(self, study_id: str, *, adapter: str | None = None,
+                   mode: str | None = None, api_key: str | None = None) -> dict:
+        study = self.store.get_study(study_id)
+        wanted_mode = mode or study['mode']
+        wanted_adapter = adapter or ('adaption' if wanted_mode == 'live' else 'fixture')
+        if wanted_mode != study['mode']:
+            raise ValueError('Only deterministic synthetic or pinned live execution for this study.')
+        if wanted_mode == 'live':
+            if wanted_adapter != 'adaption':
+                raise ValueError('Live study requires the Adaption adapter.')
+            live_adapter = AdaptionModelAdapter(api_key=api_key)
+            return ExperimentRunner(self.store, live_adapter).run(
+                study_id, model_profile=study['model_id'])
+        if wanted_adapter != 'fixture':
+            raise ValueError('Only deterministic synthetic fixture execution for this study.')
         return ExperimentRunner(self.store).run(study_id)
 
     def get_study(self, study_id: str) -> dict:
@@ -116,24 +143,50 @@ class StuApplication:
                 branches = [s for s in run['steps'] if s['step'] in ('neutral', 'commercial')]
                 if branches:
                     parsed = self.store.load_artifact(run_id, 'decompose.parsed.json')
+                    live = study['mode'] == 'live'
+                    projected = (self.store.load_artifact(run_id,
+                        'decompose.reconstruction_projection.json') if live else parsed)
+                    if live:
+                        from .projection import projection_bytes
+                        if projected != projection_bytes(json.loads(parsed)):
+                            raise RuntimeError('Frozen reconstruction projection differs from full decomposition.')
                     for branch in branches:
-                        if branch['input_sha256'] != digest(parsed):
+                        if branch['input_sha256'] != digest(projected):
                             raise RuntimeError('Reconstruction branches do not share exact intermediate hash.')
                         request = json.loads(self.store.load_artifact(run_id, branch['step'] + '.request.json'))
-                        body = json.loads(request['messages'][1]['content'])
-                        if set(body) != {'decomposition'}:
-                            raise RuntimeError('Reconstruction contains other inputs, possible Oracle/source leak.')
-                        if digest(canonical(body['decomposition'])) != digest(parsed):
-                            raise RuntimeError('Reconstruction request contents differ from the frozen intermediate.')
+                        user_text = request['messages'][1]['content']
+                        if live:
+                            if user_text.encode('utf-8') != projected or 'source_support' in user_text:
+                                raise RuntimeError('Live reconstruction request differs from frozen projection.')
+                            provider = json.loads(self.store.load_artifact(
+                                run_id, branch['step'] + '.provider_request.json'))
+                            if provider['input'] != user_text or provider['instructions'] != request['messages'][0]['content']:
+                                raise RuntimeError('Recorded SDK reconstruction request mismatch.')
+                            if provider.get('store') is not False or provider.get('agentic_memory') is not False or provider.get('tools') != []:
+                                raise RuntimeError('Live provider request is not stateless/tool-free.')
+                        else:
+                            body = json.loads(user_text)
+                            if set(body) != {'decomposition'}:
+                                raise RuntimeError('Reconstruction contains other inputs, possible Oracle/source leak.')
+                            if digest(canonical(body['decomposition'])) != digest(parsed):
+                                raise RuntimeError('Reconstruction request contents differ from frozen intermediate.')
                 if decompose:
                     inp = json.loads(self.store.load_artifact(run_id, 'decompose.request.json'))
                     source_body = json.loads(inp['messages'][1]['content'])
                     if set(source_body) != {'source_packet'} or source_body['source_packet'] != packet:
                         raise RuntimeError('Decomposition source-only boundary failed.')
+                    if study['mode'] == 'live':
+                        provider = json.loads(self.store.load_artifact(run_id,
+                            'decompose.provider_request.json'))
+                        if provider['input'] != inp['messages'][1]['content']:
+                            raise RuntimeError('SDK decomposition input mismatch.')
+                        if provider.get('store') is not False or provider.get('agentic_memory') is not False or provider.get('tools') != []:
+                            raise RuntimeError('SDK decomposition request is not stateless/tool-free.')
             except (ValueError, KeyError, RuntimeError, OSError) as exc:
                 errors.append({'run_id': run_id, 'error': str(exc)})
         return {'study_id': study_id, 'valid': not errors,
-                'synthetic': True, 'runs': reports, 'errors': errors}
+                'mode': study['mode'], 'synthetic': study['mode'] == 'synthetic_test',
+                'runs': reports, 'errors': errors}
 
     def get_results(self, study_id: str) -> dict:
         study = self.store.get_study(study_id)
@@ -152,14 +205,18 @@ class StuApplication:
                               'neutral_output_sha256': n['output_sha256'],
                               'commercial_output_sha256': c['output_sha256'],
                               'human_semantic_verdict': 'not_automatically_assessed'})
-        return {'study_id': study_id, 'mode': study['mode'], 'synthetic': True,
+        return {'study_id': study_id, 'mode': study['mode'],
+                'synthetic': study['mode'] == 'synthetic_test',
+                'model_id': study.get('model_id'),
                 'recorded_run_count': len(runs), 'run_status_counts': counts,
                 'runs': [{'run_id': r['run_id'], 'status': r['status'], 'steps': r['steps']} for r in runs],
                 'comparison_count': len(comparisons),
                 'completed_reviews': sum(rev['status'] == 'completed' for rev in reviews),
                 'review_gap_labels': kinds, 'completed_explanation_active_seconds':
                 [rev['active_seconds'] for rev in reviews if rev['status'] == 'completed'],
-                'paired_reconstructions': pairs, 'research_verdict': 'NO EMPIRICAL MODEL RESULTS',
+                'paired_reconstructions': pairs,
+                'research_verdict': ('NO EMPIRICAL MODEL RESULTS' if study['mode'] == 'synthetic_test'
+                                      else 'LIVE INFERENCE; SEMANTIC CORRECTNESS NOT ASSESSED'),
                 'validation': self.validate(study_id)}
 
     def export_study(self, study_id: str, *, privacy_level: str = 'full') -> dict:
