@@ -98,6 +98,9 @@ class GenerationResult:
     usage: dict = field(default_factory=dict)
     finish_reason: str | None = 'stop'
     metadata: dict = field(default_factory=dict)
+    # Optional live provider state. Older deterministic fixtures omit these.
+    provider_status: str | None = None
+    raw_response: dict | None = None
 
     def as_dict(self) -> dict:
         return asdict(self)
