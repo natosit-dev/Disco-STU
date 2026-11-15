@@ -17,6 +17,11 @@ from .runner import ExperimentRunner, prompt_hashes
 from .storage import StuStore, atomic_json
 
 
+PRIMARY_REVIEW_KINDS = ('oracle_vs_neutral', 'oracle_vs_commercial')
+ORIGINAL_FINAL_KINDS = frozenset(('original_vs_neutral', 'original_vs_commercial'))
+RECONSTRUCTION_DIAGNOSTIC_KINDS = ('decomposition_vs_neutral', 'decomposition_vs_commercial')
+
+
 class StuApplication:
     def __init__(self, data_root: str | Path = 'data', *, clock=now):
         self.store = StuStore(data_root)
@@ -75,8 +80,31 @@ class StuApplication:
         return self.store.get_study(study_id)
 
     def list_comparisons(self, study_id: str) -> list[dict]:
-        return [dict(comp, review=self.review.state(comp['comparison_id']))
-                for comp in self.store.list_comparisons(study_id)]
+        """Put final-output human reviews first; keep diagnostics available, optional."""
+        comparisons = self.store.list_comparisons(study_id)
+        priority = {kind: i for i, kind in enumerate(PRIMARY_REVIEW_KINDS)}
+        comparisons.sort(key=lambda comp: (0 if comp['kind'] in priority else 1,
+                                            priority.get(comp['kind'], 99),
+                                            comp['run_id'], comp['kind']))
+        return [dict(comp,
+                     review_role='primary' if comp['kind'] in priority else 'diagnostic',
+                     review=self.review.state(comp['comparison_id']))
+                for comp in comparisons]
+
+    def reconcile_original_final_comparisons(self, study_id: str) -> dict:
+        """Explicit, idempotent historical backfill. No model call or old-file rewrite."""
+        study = self.store.get_study(study_id)
+        created = []
+        for run_id in study['runs']:
+            run = self.store.get_run(run_id)
+            if run['study_id'] != study_id:
+                raise RuntimeError('Run belongs to a different study.')
+            self.store.verify_run(run_id)
+            created.extend(ExperimentRunner(self.store)._comparisons(
+                run_id, only_kinds=ORIGINAL_FINAL_KINDS))
+        return {'study_id': study_id, 'created_count': len(created),
+                'comparison_ids': created,
+                'note': 'Existing comparisons and human review events were not changed.'}
 
     def get_comparison(self, comparison_id: str) -> dict:
         """Explicit reviewer-only API. Never invoke this from ModelAdapter/runner."""
@@ -104,8 +132,32 @@ class StuApplication:
             raise RuntimeError('Comparison reference hash mismatch.')
         if target['sha256'] != comp['target_sha256']:
             raise RuntimeError('Comparison target hash mismatch.')
-        return {**comp, 'reference_view': ref, 'target_view': target,
-                'review': self.review.state(comparison_id)}
+        result = {**comp, 'reference_view': ref, 'target_view': target,
+                  'review': self.review.state(comparison_id)}
+        if comp['kind'] in RECONSTRUCTION_DIAGNOSTIC_KINDS:
+            run = self.store.get_run(comp['run_id'])
+            if run['mode'] == 'live':
+                # The persisted comparison still refers to the FULL decomposition.
+                # This additive view shows the EXACT bytes the model actually saw.
+                projection_name = 'decompose.reconstruction_projection.json'
+                raw = self.store.load_artifact(comp['run_id'], projection_name)
+                condition = comp['kind'].rsplit('_vs_', 1)[1]
+                step = next((step for step in run['steps'] if step['step'] == condition), None)
+                if step is None or step['status'] != 'completed':
+                    raise RuntimeError('Diagnostic reconstruction has no successful stage.')
+                if step['input_sha256'] != digest(raw):
+                    raise RuntimeError('Reconstruction input hash does not match frozen projection.')
+                provider = json.loads(self.store.load_artifact(
+                    comp['run_id'], condition + '.provider_request.json'))
+                if provider['input'].encode('utf-8') != raw:
+                    raise RuntimeError('Provider received different projection bytes.')
+                result['model_visible_projection_view'] = {
+                    'kind': 'exact_model_visible_reconstruction_input',
+                    'artifact_name': projection_name, 'payload': json.loads(raw),
+                    'sha256': digest(raw), 'byte_count': len(raw), 'private': False,
+                    'verified_against_stage': condition,
+                }
+        return result
 
     def begin_gap_explanation(self, cid: str) -> dict:
         return self.review.begin(cid)
@@ -205,12 +257,18 @@ class StuApplication:
                               'neutral_output_sha256': n['output_sha256'],
                               'commercial_output_sha256': c['output_sha256'],
                               'human_semantic_verdict': 'not_automatically_assessed'})
+        primary = [c for c in comparisons if c['kind'] in PRIMARY_REVIEW_KINDS]
+        completed_primary = sum(self.review.state(c['comparison_id'])['status'] == 'completed'
+                                for c in primary)
         return {'study_id': study_id, 'mode': study['mode'],
                 'synthetic': study['mode'] == 'synthetic_test',
                 'model_id': study.get('model_id'),
                 'recorded_run_count': len(runs), 'run_status_counts': counts,
                 'runs': [{'run_id': r['run_id'], 'status': r['status'], 'steps': r['steps']} for r in runs],
                 'comparison_count': len(comparisons),
+                'primary_comparison_count': len(primary),
+                'completed_primary_reviews': completed_primary,
+                'diagnostic_comparison_count': len(comparisons) - len(primary),
                 'completed_reviews': sum(rev['status'] == 'completed' for rev in reviews),
                 'review_gap_labels': kinds, 'completed_explanation_active_seconds':
                 [rev['active_seconds'] for rev in reviews if rev['status'] == 'completed'],
