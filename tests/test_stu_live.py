@@ -152,7 +152,7 @@ def test_live_pipeline_preserves_evidence_projection_metadata_and_zip(tmp_path, 
     assert SOURCE not in provider.calls[1]['input']
     assert 'source_support' in app.store.load_artifact(
         run['run_id'], 'decompose.parsed.json').decode('utf-8')
-    assert SOURCE in provider.calls[0]['input']
+    assert json.loads(provider.calls[0]['input'])['source_packet']['original_text'] == SOURCE
 
     for stage in ('decompose', 'neutral', 'commercial'):
         raw = json.loads(app.store.load_artifact(
