@@ -1,0 +1,55 @@
+{
+  "release_schema": "disco-stu-public-evidence.v1",
+  "release_kind": "unredacted_research_evidence",
+  "experiment": "Experiment 01: From Meaning to Management",
+  "experiment_date": "2026-11-15",
+  "publication_note": "Full original exports copied byte-for-byte; no removals, redactions, or modifications",
+  "studies": [
+    {
+      "label": "01-gemma",
+      "study_id": "9267fc4d-4273-4e66-8b24-6d6dde6b8e38",
+      "mode": "live",
+      "model": "gemma-4-31b-it"
+    },
+    {
+      "label": "02-deepseek",
+      "study_id": "a5cac708-c971-4d5b-9317-61e1b387f228",
+      "mode": "live",
+      "model": "deepseek-v4-flash"
+    }
+  ],
+  "files": [
+    {
+      "path": "01-gemma/9267fc4d-4273-4e66-8b24-6d6dde6b8e38-full.zip",
+      "kind": "full.zip",
+      "study_id": "9267fc4d-4273-4e66-8b24-6d6dde6b8e38",
+      "size_bytes": 48891,
+      "sha256": "9e6316f7378c97bd00953790a7db09f4743e19dbd16f8b6c4df7eca9c7e8ccff",
+      "unchanged_original": true
+    },
+    {
+      "path": "01-gemma/9267fc4d-4273-4e66-8b24-6d6dde6b8e38-safe.json",
+      "kind": "safe.json",
+      "study_id": "9267fc4d-4273-4e66-8b24-6d6dde6b8e38",
+      "size_bytes": 6587,
+      "sha256": "bc10b828a3546e8390ee159bc3f41e3205ec603caada191df9147ef6856ea8c7",
+      "unchanged_original": true
+    },
+    {
+      "path": "02-deepseek/a5cac708-c971-4d5b-9317-61e1b387f228-full.zip",
+      "kind": "full.zip",
+      "study_id": "a5cac708-c971-4d5b-9317-61e1b387f228",
+      "size_bytes": 57607,
+      "sha256": "fadc3b06d8965e32f03fe503d1a8ad3a3ff5e2294d12d7299449a7fd0570bd0a",
+      "unchanged_original": true
+    },
+    {
+      "path": "02-deepseek/a5cac708-c971-4d5b-9317-61e1b387f228-safe.json",
+      "kind": "safe.json",
+      "study_id": "a5cac708-c971-4d5b-9317-61e1b387f228",
+      "size_bytes": 6756,
+      "sha256": "7f13d057a6c12635872b8b9f4c17ad1583148e5f690d771a1bcc18db511a3295",
+      "unchanged_original": true
+    }
+  ]
+}
