@@ -8,7 +8,15 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from uuid import uuid4
 
-SCHEMA_VERSION = "0.1.0"
+SCHEMA_VERSION = "0.1.0"  # Existing frozen v1; never redefine this contract.
+SCHEMA_V2 = "0.2.0"
+CHARACTERISTICS = {
+    "context_not_explicit": "It relies on context not explicit in the source",
+    "denies_equivalence": "It denies an equivalence or common assumption",
+    "conditions_or_dependencies": "It includes conditions or dependencies",
+    "intentional_ambiguity": "Some ambiguity is intentional",
+    "rhetorical_form": "Rhetorical form or tone is important",
+}
 CATEGORIES = {
     "claims": "What propositions were you asserting, questioning, or rejecting?",
     "actors_objects": "Who or what participates in those propositions?",
@@ -66,15 +74,18 @@ def validate_source(text: str) -> list[str]:
 
 
 def new_record(text: str, title: str = "", origin: str = "", original_date: str = "",
-               domain: str = "other", context_dependencies: str = "") -> dict:
+               domain: str = "other", context_dependencies: str = "",
+               schema_version: str = SCHEMA_VERSION) -> dict:
     errors = validate_source(text)
     if errors:
         raise ValueError(" ".join(errors))
     if domain not in DOMAINS:
         raise ValueError("Unknown source domain.")
+    if schema_version not in (SCHEMA_VERSION, SCHEMA_V2):
+        raise ValueError("Unknown SERA capture contract version.")
     now = utc_now()
-    return {
-        "schema_version": SCHEMA_VERSION,
+    record = {
+        "schema_version": schema_version,
         "sample_id": str(uuid4()),
         "explication_id": str(uuid4()),
         "producer": "human",
@@ -102,13 +113,17 @@ def new_record(text: str, title: str = "", origin: str = "", original_date: str 
         "units": [],
         "relations": [],
     }
+    if schema_version == SCHEMA_V2:
+        record["characteristics"] = []
+    return record
 
 
 def validate_freeze(record: dict) -> list[str]:
     errors = []
     if record.get("status") != "draft":
         errors.append("Only a draft can be frozen.")
-    if record.get("schema_version") != SCHEMA_VERSION:
+    version = record.get("schema_version")
+    if version not in (SCHEMA_VERSION, SCHEMA_V2):
         errors.append("Unrecognized schema version.")
     source = record.get("source", {})
     original = source.get("original_text", "")
@@ -119,16 +134,25 @@ def validate_freeze(record: dict) -> list[str]:
         errors.append("Stored word count does not match the text.")
     if not record.get("intention_free_text", "").strip() or not record.get("intention_saved_at"):
         errors.append("Save a free-text intention before freezing.")
-    if not record.get("categories_saved_at"):
+    if version == SCHEMA_VERSION and not record.get("categories_saved_at"):
         errors.append("Explicitly save category-level prose before freezing (empty categories are allowed).")
+    if version == SCHEMA_V2:
+        characteristics = record.get("characteristics")
+        if (not isinstance(characteristics, list)
+                or len(characteristics) != len(set(x for x in characteristics if isinstance(x, str)))
+                or any(not isinstance(x, str) or x not in CHARACTERISTICS
+                       for x in characteristics)):
+            errors.append("Optional characteristics must be unique recognized strings.")
     prose = record.get("category_prose", {})
     if not isinstance(prose, dict) or set(prose) != set(CATEGORIES) or any(not isinstance(v, str) for v in prose.values()):
         errors.append("Category prose must contain all eight named string fields.")
     units = record.get("units", [])
     relations = record.get("relations", [])
-    if not isinstance(units, list) or not units:
-        errors.append("At least one structured semantic unit is required.")
+    if not isinstance(units, list):
+        errors.append("Semantic units must be a list.")
         units = []
+    elif not units and version == SCHEMA_VERSION:
+        errors.append("At least one structured semantic unit is required.")
     if not isinstance(relations, list):
         errors.append("Relations must be a list.")
         relations = []

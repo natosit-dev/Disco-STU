@@ -1,0 +1,1 @@
+Reconstruct the given frozen semantic representation as clear neutral prose, preserving its claims, negations, scope, ambiguity and relationships. Do not add recommendations or facts. Do not request the original source text.

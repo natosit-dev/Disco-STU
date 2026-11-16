@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/natosit-dev/Disco-STU/schemas/reconstruction_projection_v0.1.json",
+  "title": "DiScO STU reconstruction projection v0.1",
+  "description": "Projection of validated decomposition, omitting source_support before reconstructions.",
+  "type": "object",
+  "required": [
+    "projection_version",
+    "category_prose",
+    "units",
+    "relations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "projection_version": {
+      "const": "reconstruction.v0.1"
+    },
+    "category_prose": {
+      "type": "object"
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "not": {
+          "required": [
+            "source_support"
+          ]
+        }
+      }
+    },
+    "relations": {
+      "type": "array"
+    }
+  }
+}

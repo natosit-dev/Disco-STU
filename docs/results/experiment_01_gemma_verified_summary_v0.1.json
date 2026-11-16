@@ -1,0 +1,45 @@
+{
+  "record_schema": "stu.research_summary.v0.1",
+  "source_classification": "author-approved_public_summary",
+  "experiment": "01_From_Meaning_to_Management",
+  "date_local": "2026-11-15",
+  "mode": "live",
+  "synthetic": false,
+  "model": "gemma-4-31b-it",
+  "study_id": "9267fc4d-4273-4e66-8b24-6d6dde6b8e38",
+  "run_id": "78e82cc2-ec2b-440e-a36d-72b8963be8a8",
+  "full_private_zip_sha256": "9e6316f7378c97bd00953790a7db09f4743e19dbd16f8b6c4df7eca9c7e8ccff",
+  "safe_export_sha256": "bc10b828a3546e8390ee159bc3f41e3205ec603caada191df9147ef6856ea8c7",
+  "manifest_files_verified": 45,
+  "manifest_files_total": 45,
+  "inference_stages_completed": 3,
+  "comparison_count": 10,
+  "primary_reviews_completed": 2,
+  "reviews": [
+    {
+      "kind": "original_vs_neutral",
+      "confirmed_active_seconds": 171.808159,
+      "status": "completed",
+      "no_meaningful_gap": false,
+      "free_text_observation_recorded": true,
+      "optional_labels": [],
+      "timing_quality": "amended_after_completion_with_no_text_change",
+      "finding": "Explicit propositions retained; three separate sentences collapsed, reducing rhetorical separation."
+    },
+    {
+      "kind": "original_vs_commercial",
+      "confirmed_active_seconds": 51.712865,
+      "status": "completed",
+      "no_meaningful_gap": false,
+      "free_text_observation_recorded": true,
+      "optional_labels": [],
+      "timing_quality": "incomplete_unmeasured_paused_interval",
+      "unmeasured_pause_to_save_seconds_approx": 388.762341,
+      "finding": "Commercial treatment transformed a deliberate jarring intervention into familiar management advice."
+    }
+  ],
+  "combined_confirmed_active_seconds": 223.521024,
+  "overall_timing_quality": "incomplete_not_total_labor",
+  "research_finding": "One author observed preservation of explicit negations with diminished rhetorical purpose; not a generalized model capability claim.",
+  "private_artifacts_in_git": false
+}
