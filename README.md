@@ -6,6 +6,15 @@ If these trends continue... EHHHH
 
 **[Documentation index](docs/INDEX.md)** — current research plan, factual build record, implementation contracts, and historical archive.
 
+## Published research
+
+**[The Propositions Survived. The Intervention Changed.](docs/research/2026-11-15_THE_PROPOSITIONS_SURVIVED_THE_INTERVENTION_CHANGED.pdf)** — Nat Osit's five-page research paper submitted to the November 2026 Apart AI × Epistemics Research Sprint (*From Meaning to Management*).
+
+- [Full unredacted evidence release — Gemma and DeepSeek](docs/results/datasets/2026-11-15_from-meaning-to-management/) — original study exports, manifests, SHA-256 checksums, and human reviews.
+- Submitted PDF SHA-256: `ee6f2dc61a2833028097ef8eb60365e5e69d774dd02b01af641ff4776567e60d`.
+
+The PDF is preserved **byte-for-byte as submitted**. Its references to private study archives describe the state at submission; the underlying archives were published subsequently and are linked above.
+
 ## What this is
 
 **DiScO** = **Deterministic Inspection of Semantic Coupling in Outputs**.
