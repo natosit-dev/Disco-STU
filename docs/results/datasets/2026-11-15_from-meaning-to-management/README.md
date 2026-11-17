@@ -13,6 +13,8 @@ The author elected to publish all exports without redactions, including the retr
 
 Both original full ZIPs include their own file manifests, saved model requests and responses, source-only packet, frozen authorial record, prompts, reconstructed outputs, and human-review events. The same frozen SERA Oracle occurs in both archives. Archive-internal paths containing `private` reflect the original local storage layout and are **public upon publication**.
 
+**Later authorial clarification (17 November 2026):** [The Human Oracle Forgot the INSERT Statement](../../../field-notes/2026-11-17_SERA_POST_FREEZE_CLARIFICATION_FINGER_IMPRINT_UIDS.md) documents a finger-imprint UID mechanism omitted from the original SERA prose. This is post-freeze commentary, not an amendment to the two original evidence ZIPs or a new experimental finding.
+
 ## Provenance and verification
 
 Files were copied byte-for-byte from original export artifacts. `RELEASE_MANIFEST.json` records SHA-256 and byte length for each copied file. `SHA256SUMS` provides command-line verification. The original archive contents were audited separately for credential and personal-data exposure before an affirmative unredacted-release decision.
